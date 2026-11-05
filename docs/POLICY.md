@@ -50,17 +50,19 @@ Use these words in code, UI text and Issues, with these meanings.
 - **P-4 Say what is supported before running.** Show operations and risk before execution. Reject forecasting, causal "why" questions, data changes and missing data early, with a reason (RC-20, US-07).
 - **P-5 Business definitions win.** Terms mean what `semantic_layer.yaml` says, not what the model assumes (RC-05).
 - **P-6 Follow-ups are new questions.** At most 3, built from templates. Each one goes through the full pipeline (RC-21).
-- **P-7 Feedback and history are kept.** Ratings are stored with the audit record. Reopening an answer never reruns it (US-08, US-09).
+- **P-7 Feedback and history are kept.** The buttons are labelled "Correct" and "Flag an issue", and are stored as correct or incorrect (US-09). Ratings are stored with the audit record. Reopening an answer never reruns it (US-08, US-09).
+- **P-8 Empty results.** An empty result is a non-blocking warning: the answer is released with Low support, a "no rows matched" message and no number. It does not trigger a retry (RC-17).
 
 ## 4. Privacy and data handling
 
-- **D-1 Data stays on the machine.** Only schema metadata, business terms, the question and error messages may go to the LLM provider (RC-07). Example values are **off** (OQ-05). Turning them on is the owner's decision.
+- **D-1 Data stays on the machine.** Only schema metadata, business terms, the question and error messages (with literal values removed) may go to the LLM provider (RC-07). Example values are **off** (OQ-05). Turning them on is the owner's decision.
 - **D-2 Secrets.** The API key is set only as an environment variable. Never commit or paste keys, tokens or `.env` files into code, Issues, PRs, logs or videos.
 - **D-3 Test data.** Use the fictional sample dataset and small synthetic CSVs. Never put real personal or company data in the repo, Issues or the gold set.
 - **D-4 History is kept until the user deletes it.** Audit records stay in a local SQLite file, with no telemetry. There is no "clear history" button in the MVP. Deleting the file clears history. A clear button would be new scope and needs an SDD change.
 - **D-5 Read-only.** Querious never changes the user's data (RC-01). Requests to change data are refused.
 - **D-6 What a dataset is (US-01, ASSUMPTION-01).**
-  - One CSV with a header row, up to 50 MB, with English column names. Anything else is rejected with a clear message.
+  - An upload is one CSV with a header row, up to 50 MB. Anything else is rejected with a clear message. English column names are an assumption (ASSUMPTION-01), documented but not enforced.
+  - The built-in **sample dataset** is the one exception: two tables (customers and orders) with one declared join, shipped with the app.
   - **One active dataset at a time.** It is kept locally so it is still there after a restart.
   - "Change dataset" replaces it. Old answers in history still show the fingerprint of the dataset they used.
 

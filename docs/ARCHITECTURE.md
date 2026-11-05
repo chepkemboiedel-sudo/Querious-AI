@@ -26,7 +26,7 @@
 | Trust, provenance, explanation | RC-17 trust level, RC-19 provenance, templated summary, follow-up templates. | `backend/app/pipeline/trust.py`, `provenance.py`, `explain.py`, `followups.py` | No |
 | Audit logger | Append-only events in SQLite. History and replay read from here. | `backend/app/audit/` | No |
 | LLM provider interface | The **only** module that imports a model SDK. Ships with a mock provider for tests. | `backend/app/llm/` | Calls the API |
-| Semantic layer | Business terms, metrics, allowed joins. Validated at load time. | `semantic_layer.yaml` | No |
+| Semantic layer | Business terms, metrics, allowed joins, **grouped per dataset**. The active dataset's section is validated each time that dataset becomes active. | `semantic_layer.yaml` | No |
 | Evaluation | Gold set runner (US-13). Optional isolated baseline runner (US-14). | `eval/` | Only through the provider |
 
 ## 3. How a question flows
@@ -66,7 +66,7 @@ These shapes are shared by many Issues. Change them only through an ADR, and upd
 | Contract | Defined in | Used by |
 |---|---|---|
 | Query plan (IR): filters, aggregations, grouping, sorting, top-N, time bucketing, declared joins (OQ-02) | `pipeline/ir.py` | planner, validator, compiler, risk, trust, provenance, follow-ups |
-| `semantic_layer.yaml` format: terms, metrics, joins | `semantic/schema.py` | planner, validator, checks, Data overview |
+| `semantic_layer.yaml` format: one section per dataset (terms, metrics, joins); a dataset with no section has no terms | `semantic/schema.py` | planner, validator, checks, Data overview |
 | Audit event model (RC-09 fields, append-only, versioned) | `audit/events.py` | every pipeline step, history, replay, evaluation |
 | LLM provider interface: `complete_json(prompt, schema) → dict` | `llm/provider.py` | ambiguity, planner, eval |
 | Policy versions: risk policy, trust policy, check registry | `pipeline/risk.py`, `trust.py` | trust level, audit record |
@@ -110,7 +110,13 @@ The H-numbers match the hard rules in `CLAUDE.md`. Each rule has a test.
 |---|---|---|
 | Dataset persistence | The last loaded dataset is kept in a local DuckDB file and is available again after a restart. | TMP-03, TMP-04 |
 | Datasets at once | One active dataset. "Change dataset" replaces it. Every audit record stores the dataset fingerprint it used. | TMP-03, TMP-07, TMP-28 |
-| Stage progress (OD-6) | Polling: the browser asks for the question's stage about every 500 ms. | TMP-14, TMP-15 |
+| Stage progress (OD-6) | Polling: the browser asks for the question's stage about every 500 ms. | TMP-14, TMP-15a |
+| Semantic layer scope | Terms and joins are grouped per dataset. The built-in sample (two tables) has its terms and one declared join. An upload with no section has no terms and no joins, which is not an error. | TMP-05, TMP-09, TMP-10 |
+| Profiling | The loader computes the schema profile and fingerprint during load and stores them. After that, only the executor opens the dataset, read-only. | TMP-03, TMP-04 |
+| Errors to the LLM | Database errors sent back to the planner have literal values removed. The full error stays in the local audit log. | TMP-19 |
+| Dates | Relative dates ("last 90 days") are resolved to absolute dates before compiling, and the dates used are recorded. | TMP-08, TMP-11, TMP-33 |
+| Preview | The capability and risk preview is shown, then the query runs without waiting for the user. | TMP-14, TMP-26 |
+| Contract reviews | PRs for TMP-02, TMP-05, TMP-06 and TMP-08 need the owner's approval; AiDev does not self-merge them. | Those four Issues |
 
 ## 9. Runtime
 

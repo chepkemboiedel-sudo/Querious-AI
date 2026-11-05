@@ -77,7 +77,7 @@ Querious is divided into six phases. The sequence builds the trusted data and sa
 - Implement LLM provider interface with server-side key handling (TMP-02)
 - Load a CSV or the sample dataset into read-only DuckDB (TMP-03, existing #4)
 - Profile the schema and compute a dataset fingerprint (TMP-04)
-- Load and validate semantic_layer.yaml (TMP-05)
+- Load and validate semantic_layer.yaml per dataset (TMP-05)
 - Create the SQLite audit store with append-only events (TMP-06)
 - Build the Start and Data overview screens (TMP-07)
 
@@ -111,14 +111,15 @@ Querious is divided into six phases. The sequence builds the trusted data and sa
 
 **Candidate GitHub Issues**
 
-- Define the query-plan IR schema in Pydantic (TMP-08, existing sub-issue)
+- Define the query-plan IR schema in Pydantic (TMP-08, existing #8)
 - Implement the LLM query planner (TMP-09)
 - Implement the plan validator and capability gate (TMP-10)
-- Compile validated plans to one read-only SELECT with SQLGlot (TMP-11, existing sub-issue)
+- Compile validated plans to one read-only SELECT with SQLGlot (TMP-11, existing #9)
 - Implement the safe executor with timeout and row limit (TMP-12)
 - Build the templated plain-English summary (TMP-13)
 - Expose the question API with stage progress and audit events (TMP-14)
-- Build the Ask, Working and Answer screens (TMP-15)
+- Build the Ask and Working screens (TMP-15a)
+- Build the Answer screen with chart and table (TMP-15b)
 
 ### 3.3 Phase 3 - Clarification, Self-Correction & Honest Failure
 
@@ -177,14 +178,15 @@ Querious is divided into six phases. The sequence builds the trusted data and sa
 - Rows considered is computed from execution metadata, never from result length, and matches the audit record (RC-19).
 - Every answer shows trust level and reasons, interpretation, terms, plan, risk class, executed SQL, checks, sources, columns, rows considered and filters (US-05).
 
-**Dependencies & sequence notes.** Requires the validated IR and validator (Phase 2), base checks and the correction loop (Phase 3), because trust levels depend on correction count and check outcomes. The risk classifier (TMP-22) must exist before Medium/High checks (TMP-23) and the trust policy (TMP-24). The cards (TMP-27) follow the trust policy and provenance builder. Lab 2 Issue #6 is reused as TMP-27.
+**Dependencies & sequence notes.** Requires the validated IR and validator (Phase 2), base checks and the correction loop (Phase 3), because trust levels depend on correction count and check outcomes. The risk classifier (TMP-22) must exist before Medium and High checks (TMP-23a, TMP-23b) and the trust policy (TMP-24). The cards (TMP-27) follow the trust policy and provenance builder. Lab 2 Issue #6 is reused as TMP-27.
 
 **Relevant UI/UX artifacts.** Screen 5 preview line (operations and risk class), screen 6 Answer, and screen 7 evidence cards: “Verification support” (level, reasons, “not a probability” note) and “Data used” (sources, columns, rows considered, filters) directly below the answer, as in the final prototype layout (SDD Table 6.3b, last row).
 
 **Candidate GitHub Issues**
 
 - Implement the deterministic risk classifier and check registry (TMP-22)
-- Implement Medium and High risk checks with helper SELECTs (TMP-23)
+- Implement Medium-risk checks (TMP-23a)
+- Implement High-risk join checks with helper SELECTs (TMP-23b)
 - Implement the deterministic trust policy with fixtures (TMP-24)
 - Implement the provenance builder (TMP-25)
 - Show the capability and risk preview before execution (TMP-26)
@@ -256,7 +258,7 @@ Querious is divided into six phases. The sequence builds the trusted data and sa
 
 ## 4 Cross-Phase Dependencies & Implementation Sequence
 
-The critical path runs through the shared contracts: scaffold (TMP-01) → read-only dataset and schema profile (TMP-03, TMP-04) → semantic layer (TMP-05) → IR schema (TMP-08) → validator (TMP-10) → compiler (TMP-11) → safe executor (TMP-12) → question API (TMP-14) → correction loop (TMP-19) → risk classifier and trust policy (TMP-22, TMP-24) → complete audit record (TMP-28) → evaluation harness (TMP-34). Delays on these items delay everything after them.
+The critical path runs through the shared contracts: scaffold (TMP-01) → read-only dataset and schema profile (TMP-03, TMP-04) → semantic layer (TMP-05) and IR schema (TMP-08, which can start in parallel after TMP-01) → validator (TMP-10) → compiler (TMP-11) → safe executor (TMP-12) → question API (TMP-14) → correction loop (TMP-19) → risk classifier and trust policy (TMP-22, TMP-24) → complete audit record (TMP-28) → evaluation harness (TMP-34). Delays on these items delay everything after them.
 
 Four shared prerequisites are used by many later Issues and must be stable, tested and human-reviewed before dependents start: the provider interface (TMP-02), the semantic-layer format (TMP-05), the append-only audit event model (TMP-06) and the IR schema (TMP-08). Changing any of them later requires a human decision because it ripples through validation, trust, provenance and replay.
 
@@ -271,7 +273,7 @@ Sequencing rules agents must not violate: no executable query path exists before
 | Question pipeline (planner, compiler, executor) | IR schema (TMP-08), semantic layer (TMP-05), read-only dataset (TMP-03) | Every pipeline step reads or produces the IR and must respect declared joins and read-only access | Start and Data overview screens (TMP-07) |
 | Executable SQL path | Validator (TMP-10) and compiler (TMP-11) | RC-01/RC-02: nothing runs unless it is a validated, compiled single SELECT | Templated summary design (TMP-13) |
 | Bounded correction loop (TMP-19) | Validator errors (TMP-10) and base checks (TMP-18) | Retries need precise error signals to send back (DD-05) | Clarify screen (TMP-17) |
-| Trust policy (TMP-24) | Risk checks (TMP-23) and correction loop (TMP-19) | RC-17 levels depend on check outcomes and correction count | Provenance builder (TMP-25) |
+| Trust policy (TMP-24) | Risk checks (TMP-23a, TMP-23b) and correction loop (TMP-19) | RC-17 levels depend on check outcomes and correction count | Provenance builder (TMP-25) |
 | Verification and Data used cards (TMP-27) | Trust policy (TMP-24) and provenance (TMP-25) | Cards must show recorded evidence, not placeholders | Follow-up suggestions (TMP-32) |
 | Replay and history (TMP-29, TMP-30) | Complete audit record (TMP-28) | Both are views of immutable audit events (RC-22, US-08) | Answer feedback (TMP-31) |
 | Evaluation harness (TMP-34) | Gold set (TMP-33) and Phases 2–5 | Metrics and RC-17 to RC-22 fixtures need the full pipeline | Accessibility pass (TMP-35) |
@@ -296,42 +298,44 @@ Each candidate item becomes one focused GitHub Issue that an implementation agen
 |---|---|---|---|---|---|
 | TMP-01 | Scaffold FastAPI backend, React frontend, pytest and CI | 1 | RC-08, RC-15; DD-07 | None | Reuses Lab 2 Issue #3; SDD 5.1 technology table. |
 | TMP-02 | Implement LLM provider interface with server-side key handling | 1 | RC-08, RC-12, RC-16; DD-01 | TMP-01 | Mock provider for tests; Figure 1 provider boundary. |
-| TMP-03 | Load a CSV or the sample dataset into read-only DuckDB | 1 | US-01; RC-01; ASSUMPTION-01 | TMP-01 | Reuses Lab 2 Issue #4; screen 1 Start, file-error state. |
+| TMP-03 | Load a CSV or the sample dataset into read-only DuckDB | 1 | US-01; RC-01; ASSUMPTION-01 | TMP-01 | Reuses Lab 2 #4, narrowed to loading; dataset kept between restarts; screen 1. |
 | TMP-04 | Profile the schema and compute a dataset fingerprint | 1 | US-02; RC-07, RC-09; OQ-05 | TMP-03 | Example values off by default; screen 2. |
-| TMP-05 | Load and validate semantic_layer.yaml | 1 | US-12; RC-05; DD-03 | TMP-04 | Terms, metrics, declared joins; screen 2 terms list. |
+| TMP-05 | Load and validate semantic_layer.yaml per dataset | 1 | US-12; RC-05; DD-03 | TMP-04 | Terms and joins grouped by dataset; uploads without a section get none; owner approves PR. |
 | TMP-06 | Create the SQLite audit store with append-only events | 1 | RC-09, RC-22; DD-10 | TMP-01 | Event model reused by Phases 2–5. |
 | TMP-07 | Build the Start and Data overview screens | 1 | US-01, US-02, US-12; RC-13, RC-14 | TMP-03, TMP-05 | Screens 1–2, navy sidebar; prototype flow A. |
-| TMP-08 | Define the query-plan IR schema in Pydantic | 2 | RC-02; DD-02; OQ-02 | TMP-01 | Reuses Lab 2 sub-issue; shared contract. |
+| TMP-08 | Define the query-plan IR schema in Pydantic | 2 | RC-02; DD-02; OQ-02 | TMP-01 | Reuses Lab 2 #8 (reopened); shared contract; owner approves PR. |
 | TMP-09 | Implement the LLM query planner | 2 | US-03; RC-02, RC-06, RC-07 | TMP-02, TMP-05, TMP-08 | Schema-only prompts; Figure 1 planner. |
 | TMP-10 | Implement the plan validator and capability gate | 2 | RC-02, RC-05, RC-20; US-07 | TMP-05, TMP-08 | Precise errors feed TMP-19. |
-| TMP-11 | Compile validated plans to one read-only SELECT with SQLGlot | 2 | RC-01, RC-02, RC-06 | TMP-08, TMP-10 | Reuses Lab 2 sub-issue; determinism test. |
+| TMP-11 | Compile validated plans to one read-only SELECT with SQLGlot | 2 | RC-01, RC-02, RC-06 | TMP-08, TMP-10 | Reuses Lab 2 #9; determinism test. |
 | TMP-12 | Implement the safe executor with timeout and row limit | 2 | RC-01, RC-10 | TMP-03, TMP-11 | 15 s timeout, 5,000 rows. |
 | TMP-13 | Build the templated plain-English summary | 2 | RC-03, RC-13; DD-04 | TMP-12 | Screen 6 headline and summary. |
 | TMP-14 | Expose the question API with stage progress and audit events | 2 | RC-09, RC-11 | TMP-06, TMP-09 to TMP-13 | Four stages; screen 5. |
-| TMP-15 | Build the Ask, Working and Answer screens | 2 | US-03; RC-11, RC-13, RC-14 | TMP-07, TMP-14 | Screens 3, 5, 6; chart plus table. |
-| TMP-16 | Implement the ambiguity check with schema-valid alternatives | 3 | US-04; RC-20; DD-06; RISK-01 | TMP-05, TMP-09 | Two or three described meanings. |
-| TMP-17 | Build the Clarify screen | 3 | US-04; RC-14 | TMP-15, TMP-16 | Screen 4; prototype flow B. |
+| TMP-15a | Build the Ask and Working screens | 2 | US-03; RC-11, RC-13, RC-14 | TMP-07, TMP-14 | Screens 3 and 5; template-based suggested questions. |
+| TMP-15b | Build the Answer screen with chart and table | 2 | US-03; RC-13, RC-14 | TMP-15a | Screen 6; split from TMP-15 at review. |
+| TMP-16 | Implement the ambiguity check with schema-valid alternatives | 3 | US-04; RC-20; DD-06; RISK-01 | TMP-05, TMP-09, TMP-14 | Two or three described meanings; blocker added at review. |
+| TMP-17 | Build the Clarify screen | 3 | US-04; RC-14 | TMP-15a, TMP-16 | Screen 4; prototype flow B. |
 | TMP-18 | Implement base result sanity checks | 3 | RC-03; RISK-02 | TMP-12 | Empty, impossible %, row multiplication. |
-| TMP-19 | Implement bounded self-correction with exact error feedback | 3 | US-06; RC-04; DD-05 | TMP-10, TMP-14, TMP-18 | Reuses Lab 2 sub-issue; flow C. |
+| TMP-19 | Implement bounded self-correction with exact error feedback | 3 | US-06; RC-04; DD-05 | TMP-10, TMP-14, TMP-18 | Reuses Lab 2 #10; flow C; literal values removed from errors sent to the LLM. |
 | TMP-20 | Implement early rejection, honest failure and LLM service errors | 3 | US-07; RC-03, RC-12, RC-20 | TMP-10, TMP-19 | Execution spy; flow E. |
-| TMP-21 | Build the Honest failure and service-unavailable screens | 3 | US-07; RC-12, RC-13 | TMP-15, TMP-20 | Screen 8 and Try again state. |
+| TMP-21 | Build the Honest failure and service-unavailable screens | 3 | US-07; RC-12, RC-13 | TMP-15a, TMP-20 | Screen 8 and Try again state. |
 | TMP-22 | Implement the deterministic risk classifier and check registry | 4 | US-11; RC-18; DD-09 | TMP-10, TMP-18 | Versioned registry. |
-| TMP-23 | Implement Medium and High risk checks with helper SELECTs | 4 | US-11; RC-18, RC-23 | TMP-22 | Join cardinality, reconciliation. |
-| TMP-24 | Implement the deterministic trust policy with fixtures | 4 | US-05; RC-17; DD-08 | TMP-19, TMP-23 | No percentages; Not available state. |
-| TMP-25 | Implement the provenance builder | 4 | US-05; RC-19 | TMP-12, TMP-23 | Rows considered from metadata. |
-| TMP-26 | Show the capability and risk preview before execution | 4 | US-07, US-11; RC-20 | TMP-15, TMP-22 | Screen 5 preview line. |
+| TMP-23a | Implement Medium-risk checks | 4 | US-11; RC-18 | TMP-22 | Aggregate type, nulls, grouping grain, date boundaries. |
+| TMP-23b | Implement High-risk join checks with helper SELECTs | 4 | US-11; RC-18, RC-23 | TMP-23a | Cardinality, row multiplication, reconciliation; split at review. |
+| TMP-24 | Implement the deterministic trust policy with fixtures | 4 | US-05; RC-17; DD-08 | TMP-19, TMP-23b | No percentages; Not available state. |
+| TMP-25 | Implement the provenance builder | 4 | US-05; RC-19 | TMP-12, TMP-23b | Rows considered from metadata. |
+| TMP-26 | Show the capability and risk preview before execution | 4 | US-07, US-11; RC-20 | TMP-15a, TMP-22 | Screen 5 preview line; runs automatically after the preview. |
 | TMP-27 | Build the Verification support and Data used cards | 4 | US-05; RC-13, RC-17, RC-19 | TMP-24, TMP-25 | Reuses Lab 2 Issue #6; screen 7 below the answer. |
 | TMP-28 | Complete the RC-09 audit record | 5 | RC-09 | TMP-06, TMP-24, TMP-25 | All RC-09 fields and versions. |
-| TMP-29 | Build the correction replay from audit events | 5 | US-06; RC-22 | TMP-28 | Screen 7 Replay correction. |
-| TMP-30 | Implement question history with reopen | 5 | US-08 | TMP-28 | Screen 9; no rerun on reopen. |
-| TMP-31 | Implement answer feedback | 5 | US-09 | TMP-28 | Screen 10 Correct / Flag an issue. |
-| TMP-32 | Generate up to three schema-validated follow-up questions | 5 | US-10; RC-21 | TMP-10, TMP-15 | Screen 6 follow-up chips. |
+| TMP-29 | Build the correction replay from audit events | 5 | US-06; RC-22 | TMP-27, TMP-28 | Screen 7 Replay correction. |
+| TMP-30 | Implement question history with reopen | 5 | US-08 | TMP-15b, TMP-27, TMP-28 | Screen 9; no rerun on reopen. |
+| TMP-31 | Implement answer feedback | 5 | US-09 | TMP-15b, TMP-28 | Screen 10 Correct / Flag an issue. |
+| TMP-32 | Generate up to three schema-validated follow-up questions | 5 | US-10; RC-21 | TMP-10, TMP-15b | Screen 6 follow-up chips. |
 | TMP-33 | Build the frozen sample dataset and gold question set | 6 | US-13; OQ-03 | TMP-08 | 40–50 labeled questions; human labeling. |
 | TMP-34 | Implement the one-command evaluation harness and report | 6 | US-13; RC-17 to RC-22 | TMP-33, Phases 2–5 | Reuses Lab 2 Issue #7. |
 | TMP-35 | Run the accessibility and SDD acceptance pass | 6 | RC-14, RC-15; US-01 to US-13 | Phases 1–5 | All prototype flows A–F. |
 | TMP-36 | Optional: build the isolated baseline comparison runner | 6 | US-14; RC-23; DD-11; OQ-04 | TMP-34 | Developer-only; not in user API. |
 
-*TMP IDs are temporary. Lab 2 Issues #3, #4, #6 and #7 and the Lab 2 sub-issues are reused for TMP-01, TMP-03, TMP-27, TMP-34, TMP-08, TMP-11 and TMP-19 and updated rather than duplicated; GitHub numbers replace the TMP IDs once the Issues are created.
+*TMP IDs are temporary. Updated after the owner reviewed Claude Code's proposed backlog: TMP-15 and TMP-23 were split into a/b (38 items), blockers were added to TMP-16, TMP-29, TMP-30 and TMP-31, and Lab 2 parent Issue #5 is closed as superseded by #8, #9 and #10. Lab 2 Issues #3, #4, #8, #9, #10, #6 and #7 are reused for TMP-01, TMP-03, TMP-08, TMP-11, TMP-19, TMP-27 and TMP-34; docs/backlog-map.md lists the final GitHub numbers.
 
 ## 6 Risks, Open Decisions & Agent Guardrails
 
@@ -342,8 +346,9 @@ These items complement the SDD (Section 7.2) and the CLAUDE.md hard rules. Open 
 - **OD-1 LLM model (OQ-01):** the model is not chosen. Agents use the provider interface with the model name in configuration and must not hard-code a model or call another provider directly. The human owner selects the model after comparing candidates on the gold set.
 - **OD-2 IR coverage (OQ-02):** limited to filters, aggregations, grouping, sorting, top-N, time bucketing and declared joins. Agents must not add window functions, subqueries or free SQL to make a question pass; unsupported questions fail honestly.
 - **OD-3 Gold set and dataset (OQ-03):** the human owner approves the frozen sample dataset and labels each question (answerable, ambiguous, unsupported) with gold results; agents may draft candidates but not finalize labels or expected answers.
-- **OD-4 Example values to the LLM (OQ-05):** off by default; agents must not enable it or send row values for any reason.
-- **OD-5 Initial check thresholds (RISK-02):** the starting set of sanity and risk checks and their thresholds (for example, what counts as unexpected row multiplication) are approved by the human owner in TMP-18 and TMP-23 before the trust policy depends on them.
+- **OD-4 Example values to the LLM (OQ-05):** off; the MVP has no code path that sends them. Example values may still be shown locally on screen 2 (US-02).
+- **Backlog review decisions (owner, November 2026):** semantic-layer terms and joins are grouped per dataset (an upload with no section has no terms; the built-in two-table sample has its declared join); helper SELECTs for checks and provenance are allowed under RC-23 (CLAUDE.md H3 clarified); direct model SQL exists only in the optional evaluation runner (H14); database errors sent to the planner have literal values removed; relative dates are resolved to absolute dates and recorded; the preview is shown and the query then runs without a pause; PRs for the contracts TMP-02, TMP-05, TMP-06 and TMP-08 need owner approval before merge.
+- **OD-5 Initial check thresholds (RISK-02):** the starting set of sanity and risk checks and their thresholds (for example, what counts as unexpected row multiplication) are approved by the human owner in TMP-18, TMP-23a and TMP-23b before the trust policy depends on them.
 - **OD-6 Stage progress transport (decided):** the owner chose polling (about every 500 ms) for RC-11 stages; it is recorded in docs/ARCHITECTURE.md and TMP-14 must follow it. The owner also decided that one dataset is active at a time and is kept locally between restarts.
 
 **Implementation risks**
@@ -367,7 +372,7 @@ These items complement the SDD (Section 7.2) and the CLAUDE.md hard rules. Open 
 
 All candidate Issues are created by Claude Code from this plan in the AiDev environment, added to the GitHub Project “Querious AI Development” (https://github.com/users/chepkemboiedel-sudo/projects/4) and linked to the repository. Lab 2 Issues are reused and updated rather than duplicated. From this point the GitHub Project and Issues are the authoritative source for detailed tasks, acceptance criteria, sequencing, status and day-to-day tracking; this plan remains the explanation of phases, dependencies and intent.
 
-Project fields carry the plan’s metadata: **Phase** (P1 Foundation & data through P6 Evaluation & hardening), **Sequence** (the TMP number, giving build order), **Status** (Backlog, Ready, In Progress, Agent Review, Done in Dev, Staging Candidate, Released), **Priorities** (P0 core MVP, P1 polish and hardening, P2 optional US-14), **Area** (Frontend, Backend API, Pipeline, Data, Semantic layer, Evaluation, DevOps), **Executor** (AiDev, Human, Pair), **SDD refs** (US/RC/DD IDs) and **Human Review** (Pending, Reviewed). Dependencies are recorded as GitHub “blocked by” relationships where supported and in each Issue’s Dependencies section.
+Project fields carry the plan’s metadata: **Phase** (P1. Foundation and Data, P2. Question pipeline, P3. Clarify and Correctness, P4. Trust and Verification, P5. Audit and History, P6. Evaluation and Hardening), **Sequence** (the TMP number, giving build order), **Status** (Backlog, Ready, In progress, Agent review, Done in Dev, Staging Candidate, Released), **Priorities** (P0 must have = core MVP, P1 should have = polish and hardening, P2 nice to have = optional US-14), **Area** (Frontend, Backend API, Pipeline, Data (Csv + DuckDB), Semantic layer, Evaluation, Devops), **Executor** (AI Dev, Human, Pair), **SDD refs** (US/RC/DD IDs) and **Human Review** (Pending, Reviewed). Dependencies are recorded as GitHub “blocked by” relationships where supported and in each Issue’s Dependencies section.
 
 Every AI-created Issue starts as Human Review = Pending and Status = Backlog. The human owner changes an Issue to Reviewed only after checking its scope, SDD traceability, acceptance criteria, design references, dependencies and verification expectations, and moves it to Ready only when it is reviewed and its prerequisites are done. Phase 1 Issues are the first to become Ready.
 
