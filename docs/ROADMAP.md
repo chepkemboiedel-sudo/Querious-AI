@@ -10,8 +10,8 @@
 
 - ✅ **Design.** SDD v1.0 (Final) and the interactive prototype (screens 1–10).
 - ✅ **Environment.** AiDev account, branch rulesets (`dev → staging → main`), Project, CLAUDE.md.
-- ✅ **Plan.** Implementation Plan v1.0, an AI-drafted backlog of 36 Issues under human review, and these context files.
-- ▶ **Next:** Phase 1. Start with the Issues where Phase = P1 and Human Review = Reviewed, in Sequence order.
+- ✅ **Plan.** Implementation Plan v1.0, an AI-drafted, human-reviewed backlog of 38 Issues, and these context files.
+- ▶ **Next:** Phase 1. Start with the Issues where Phase = P1. Foundation and Data and Human Review = Reviewed, in Sequence order.
 
 ## Phases
 
@@ -19,12 +19,12 @@ Each phase ends in something you can demo or measure. The Project's **Phase** fi
 
 | Phase | Outcome | Main modules | Stories | Done when |
 |---|---|---|---|---|
-| **P1 Foundation & data** | Load a CSV or the sample and see its tables, columns and business terms. | scaffold, `llm/`, executor (read-only), `semantic/`, `audit/`, screens 1–2 | US-01, US-02, US-12 | A valid CSV loads in under 10 s, bad files are rejected, and a bad term fails at load. |
-| **P2 Question pipeline** | A clear question → table + summary + chart. | IR, planner, validator, compiler, executor, explainer, question API, screens 3, 5, 6 | US-03 | A gold-set question is answered from an executed query, and the same plan gives the same SQL. |
-| **P3 Clarify & correct** | Ask instead of guessing, fix errors visibly, fail honestly. | ambiguity check, base checks, correction loop, screens 4 and 8 | US-04, US-06, US-07 | Ambiguous questions are clarified first, an injected error is fixed within 3 attempts, and unsupported questions show no number. |
-| **P4 Trust & verification** | Every answer shows its risk, checks, verification support and provenance. | risk classifier, check registry, trust policy, provenance, screen 7 | US-05, US-11 | Fixtures give the exact RC-17 level, and a failed join check blocks the answer. |
-| **P5 Audit & history** | Reopen, replay, rate and follow up. | full audit record, replay, history, feedback, follow-ups, screens 9–10 | US-08, US-09, US-10 | History survives a restart and replay matches the audit. |
-| **P6 Evaluation & hardening** | Measured MVP. | gold set, `eval/` harness, accessibility and acceptance pass | US-13 (US-14 optional) | One command produces the report, and US-01 to US-13 checks are passing or documented. |
+| **P1. Foundation and Data** | Load a CSV or the sample and see its tables, columns and business terms. | scaffold, `llm/`, executor (read-only), `semantic/`, `audit/`, screens 1–2 | US-01, US-02, US-12 | A valid CSV loads in under 10 s, bad files are rejected, and a bad term fails at load. |
+| **P2. Question pipeline** | A clear question → table + summary + chart. | IR, planner, validator, compiler, executor, explainer, question API, screens 3, 5, 6 | US-03 | A gold-set question is answered from an executed query, and the same plan gives the same SQL. |
+| **P3. Clarify and Correctness** | Ask instead of guessing, fix errors visibly, fail honestly. | ambiguity check, base checks, correction loop, screens 4 and 8 | US-04, US-06, US-07 | Ambiguous questions are clarified first, an injected error is fixed within 3 attempts, and unsupported questions show no number. |
+| **P4. Trust and Verification** | Every answer shows its risk, checks, verification support and provenance. | risk classifier, check registry, trust policy, provenance, screen 7 | US-05, US-11 | Fixtures give the exact RC-17 level, and a failed join check blocks the answer. |
+| **P5. Audit and History** | Reopen, replay, rate and follow up. | full audit record, replay, history, feedback, follow-ups, screens 9–10 | US-08, US-09, US-10 | History survives a restart and replay matches the audit. |
+| **P6. Evaluation and Hardening** | Measured MVP. | gold set, `eval/` harness, accessibility and acceptance pass | US-13 (US-14 optional) | One command produces the report, and US-01 to US-13 checks are passing or documented. |
 
 Phases are ordered by shared contracts: IR, semantic layer and audit events come first. Parallel work is fine inside the limits set by each Issue's "blocked by" links.
 

@@ -19,7 +19,7 @@ Querious answers plain-English questions about a user's data and shows how each 
 | --- | --- | --- |
 | H1 | The LLM is used for exactly two jobs: checking whether a question is ambiguous, and drafting a query plan. It never executes queries, never produces the SQL that runs, and never writes user-facing explanations. | DD-01, RC-02 |
 | H2 | The query plan is a JSON object validated by the Pydantic schema in the pipeline package. SQL is compiled from a validated plan by deterministic code (SQLGlot). Never execute SQL text that came from a model. | DD-02 |
-| H3 | Data access is read-only. Each answer runs one `SELECT`, with a 15-second timeout and a 5,000-row limit. No `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP` or `ALTER`, ever. | RC-01 |
+| H3 | Data access is read-only. Each attempt runs one compiled `SELECT`, with a 15-second timeout and a 5,000-row limit. Deterministic helper `SELECT`s for checks and provenance (RC-23) are allowed only through the same safety gate and limits. No `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP` or `ALTER`, ever. | RC-01, RC-23 |
 | H4 | Only schema metadata (table names, column names, types) and semantic-layer definitions are sent to the LLM. Row values, sample rows and query results are never sent. | RC-07 |
 | H5 | Every number shown to a user comes from an executed query result. If a question cannot be answered, show the reason and what was tried, and no number. | RC-03 |
 | H6 | Self-correction is triggered only by concrete signals: schema validation errors, database errors or failed result checks. At most 3 attempts per question. Never ask the model to judge its own answer. | DD-05, RC-04 |
@@ -30,7 +30,7 @@ Querious answers plain-English questions about a user's data and shows how each 
 | H11 | Verification support (High / Medium / Low) comes from the fixed RC-17 policy and its listed reasons, never from model confidence or a model-generated score. | DD-08, RC-17 |
 | H12 | The MVP is local and single-user: embedded DuckDB and SQLite, no hosted database, no user accounts. | DD-07 |
 | H13 | All model calls go through the LLM provider interface. No other module imports a model SDK directly. | SDD 5.1 |
-| H14 | The direct LLM-to-SQL baseline (US-14) lives only in the developer evaluation runner. It is never reachable from the user-facing app. | DD-11 |
+| H14 | The direct LLM-to-SQL baseline (US-14) lives only in the developer evaluation runner. It is never reachable from the user-facing app. This runner is the only documented exception to H2: it may execute model SQL, only after a single-SELECT allowlist check, read-only, against a disposable copy of the evaluation data. | DD-11, RC-23 |
 
 Each hard rule should have at least one automated test. Required tests:
 
@@ -92,6 +92,7 @@ backend/            FastAPI app
   app/pipeline/     ambiguity check, planner, validator, compiler, executor, result checks, explainer
   app/llm/          LLM provider interface (the only place model SDKs are imported)
   app/audit/        SQLite audit log
+  app/semantic/     semantic-layer loader and validator
   tests/
 frontend/           React + TypeScript (Vite)
 semantic_layer.yaml business terms, metrics, allowed joins
