@@ -23,7 +23,7 @@
 | SQL compiler | IR → one `SELECT` with SQLGlot. Same plan always gives the same SQL. | `backend/app/pipeline/compiler.py` | No |
 | Safe executor | The only code that runs SQL. Read-only DuckDB, 15 s timeout, 5,000 rows. | `backend/app/pipeline/executor.py` | No |
 | Result checks | Sanity checks plus the risk-specific check registry. | `backend/app/pipeline/checks/` | No |
-| Trust, provenance, explanation | RC-17 trust level, RC-19 provenance, templated summary, follow-up templates. | `backend/app/pipeline/trust.py`, `provenance.py`, `explain.py`, `followups.py` | No |
+| Trust, provenance, explanation | RC-17 verification support, RC-19 provenance, templated summary, follow-up templates. | `backend/app/pipeline/trust.py`, `provenance.py`, `explain.py`, `followups.py` | No |
 | Audit logger | Append-only events in SQLite. History and replay read from here. | `backend/app/audit/` | No |
 | LLM provider interface | The **only** module that imports a model SDK. Ships with a mock provider for tests. | `backend/app/llm/` | Calls the API |
 | Semantic layer | Business terms, metrics, allowed joins, **grouped per dataset**. The active dataset's section is validated each time that dataset becomes active. | `semantic_layer.yaml` | No |
@@ -42,7 +42,7 @@ Ask ─► Ambiguity check ─┬─ ambiguous ─► Clarify (user picks; nothi
                                       │                                  │ failed → exact error
                                       └──── retry (max 3 planning attempts) ◄┘
                                                    ▼ passed
-                           Trust level + provenance + templated summary + follow-ups
+                           Verification support + provenance + templated summary + follow-ups
                                                    ▼
                                 Answer (screen 6) + evidence cards (screen 7)
 Every step above writes an audit event. After attempt 3 fails → honest failure (screen 8), no number.
@@ -61,7 +61,7 @@ The arrows show who may call or import whom. Anything not listed is not allowed.
 
 ## 5. Contracts 🔒
 
-These shapes are shared by many Issues. Change them only through an ADR, and update their tests in the same pull request.
+These shapes are shared by many Issues. Change their shape only through an ADR, and update their tests in the same pull request. Content changes noted in a row (such as adding a check to the registry) follow that row's rule.
 
 | Contract | Defined in | Used by |
 |---|---|---|
@@ -69,7 +69,7 @@ These shapes are shared by many Issues. Change them only through an ADR, and upd
 | `semantic_layer.yaml` format: one section per dataset (terms, metrics, joins); a dataset with no section has no terms | `semantic/schema.py` | planner, validator, checks, Data overview |
 | Audit event model (RC-09 fields, append-only, versioned) | `audit/events.py` | every pipeline step, history, replay, evaluation |
 | LLM provider interface: `complete_json(prompt, schema) → dict` | `llm/provider.py` | ambiguity, planner, eval |
-| Policy versions: risk policy, trust policy, check registry | `pipeline/risk.py`, `trust.py` | trust level, audit record |
+| Policy versions: risk policy, trust policy, check registry (shape only; adding or changing a check within scope bumps the registry version, CLAUDE.md §8) | `pipeline/risk.py`, `trust.py` | verification support, audit record |
 
 ## 6. Architecture & security rules
 
@@ -77,14 +77,14 @@ The H-numbers match the hard rules in `CLAUDE.md`. Each rule has a test.
 
 | ID | Rule | Source |
 |---|---|---|
-| AR-1 🔒 | Never execute model text as SQL or code. Only IR → validator → compiler output runs. | RC-02, H2 |
+| AR-1 🔒 | Never execute model text as SQL or code, except the isolated baseline runner, see H14. Only IR → validator → compiler output runs. | RC-02, H2 |
 | AR-2 🔒 | One read-only `SELECT` per attempt, on a read-only connection, with a 15 s timeout and 5,000 rows. Helper SELECTs for checks and provenance pass the same gate. | RC-01, RC-10, RC-23, H3 |
-| AR-3 🔒 | Prompts contain only schema metadata, terms, the question and error messages. No rows. Example values only if config enables them (off). | RC-07, H4 |
+| AR-3 🔒 | Prompts contain only schema metadata (table/column names and types), semantic-layer definitions, the user's question, and error messages with literal values removed. Row values, sample rows and query results are never sent. Example values are never sent to the LLM (OD-4); they may only be shown locally on screen 2. Enabling them would need an ADR. | RC-07, H4 |
 | AR-4 🔒 | The API key lives in a server-side environment variable. It is never in the frontend, logs or the repo. | RC-08 |
 | AR-5 🔒 | At most 3 planning attempts. Retries are triggered only by validation errors, DB errors or failed checks. | RC-04, DD-05, H6 |
 | AR-6 🔒 | Only joins declared in the semantic layer are allowed. | RC-05, H8 |
-| AR-7 🔒 | Summaries, trust reasons, provenance and replay are built from the plan, results and audit events. They are never written by a model. | RC-03, RC-19, RC-22, H9, H10 |
-| AR-8 🔒 | The trust level comes from the fixed RC-17 policy over recorded signals. No percentages. | RC-17, H11 |
+| AR-7 🔒 | Summaries, verification support reasons, provenance and replay are built from the plan, results and audit events. They are never written by a model. | RC-03, RC-19, RC-22, H9, H10 |
+| AR-8 🔒 | Verification support (the RC-17 level) comes from the fixed RC-17 policy over recorded signals. No percentages. | RC-17, H11 |
 | AR-9 🔒 | Local and single-user: embedded DuckDB and SQLite, no accounts, no hosted DB. | DD-07, H12 |
 | AR-10 | Same validated plan → byte-identical SQL. LLM calls use the lowest-randomness settings. | RC-06 |
 | AR-11 | Unit and CI tests use the mock provider. Only explicit evaluation runs call the real API. | RISK-03 |
@@ -116,7 +116,7 @@ The H-numbers match the hard rules in `CLAUDE.md`. Each rule has a test.
 | Errors to the LLM | Database errors sent back to the planner have literal values removed. The full error stays in the local audit log. | TMP-19 |
 | Dates | Relative dates ("last 90 days") are resolved to absolute dates before compiling, and the dates used are recorded. | TMP-08, TMP-11, TMP-33 |
 | Preview | The capability and risk preview is shown, then the query runs without waiting for the user. | TMP-14, TMP-26 |
-| Contract reviews | PRs for TMP-02, TMP-05, TMP-06 and TMP-08 need the owner's approval; AiDev does not self-merge them. | Those four Issues |
+| Contract reviews | PRs that need owner approval: see CLAUDE.md §5. | CLAUDE.md §5 |
 
 ## 9. Runtime
 

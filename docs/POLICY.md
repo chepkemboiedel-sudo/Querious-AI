@@ -20,8 +20,8 @@
 
 | Who | May | Must not |
 |---|---|---|
-| Human owner (Edel) | Approve scope, mark Issues **Reviewed**, move Issues to **Ready**, approve ADRs, merge `dev → staging → main`, label the gold set. | Commit from the AiDev account. |
-| AiDev agent (Claude Code) | Draft Issues (always **Human Review = Pending**), work Ready Issues on `feature/*` branches, open and merge PRs into `dev` when tests pass. | Mark Issues Reviewed, move to Ready, push to `staging` or `main`, change rulesets or secrets, decide an open decision (Section 7). |
+| Human owner (Edel) | Approve scope, mark Issues **Reviewed**, move Issues to **Ready**, approve ADRs, open and merge `dev → staging` and `staging → main` PRs, label the gold set. | Commit from the AiDev account. |
+| AiDev agent (Claude Code) | Draft Issues (always **Human Review = Pending**), work Ready Issues on `feature/*`, `fix/*`, `docs/*` or `chore/*` branches from `dev`, open and merge PRs into `dev` when tests pass (except PRs that need owner approval, CLAUDE.md §5). Configuration and documentation work (`CLAUDE.md`, `.claude/**`, `docs/**`) may run on `chore/*` or `docs/*` branches without an Issue (CLAUDE.md §3). For this no-Issue work, only PRs that change `CLAUDE.md`, `.claude/**`, `docs/ARCHITECTURE.md` or `docs/POLICY.md` need owner approval before merge; Issue PRs follow the full list in CLAUDE.md §5. | Mark Issues Reviewed, move to Ready, push to `staging` or `main`, open PRs into `staging` or `main`, change rulesets or secrets, decide an open decision (Section 7). |
 
 ## 2. Terminology
 
@@ -55,7 +55,7 @@ Use these words in code, UI text and Issues, with these meanings.
 
 ## 4. Privacy and data handling
 
-- **D-1 Data stays on the machine.** Only schema metadata, business terms, the question and error messages (with literal values removed) may go to the LLM provider (RC-07). Example values are **off** (OQ-05). Turning them on is the owner's decision.
+- **D-1 Data stays on the machine.** Only schema metadata (table/column names and types), semantic-layer definitions, the user's question, and error messages with literal values removed may go to the LLM provider (RC-07, H4). Example values are never sent to the LLM (OD-4 / OQ-05); they may only be shown locally on screen 2. Enabling them would need an ADR.
 - **D-2 Secrets.** The API key is set only as an environment variable. Never commit or paste keys, tokens or `.env` files into code, Issues, PRs, logs or videos.
 - **D-3 Test data.** Use the fictional sample dataset and small synthetic CSVs. Never put real personal or company data in the repo, Issues or the gold set.
 - **D-4 History is kept until the user deletes it.** Audit records stay in a local SQLite file, with no telemetry. There is no "clear history" button in the MVP. Deleting the file clears history. A clear button would be new scope and needs an SDD change.
@@ -68,7 +68,7 @@ Use these words in code, UI text and Issues, with these meanings.
 
 ## 5. Responsible-use rules
 
-- **E-1 No over-claiming (RISK-04).** Passing checks shows the steps worked, not that the meaning or the data is right. UI text never says an answer is "correct" or "guaranteed".
+- **E-1 No over-claiming (RISK-04).** Passing checks shows the steps worked, not that the meaning or the data is right. System-generated text (answers, explanations, verification support, messages) never says an answer is "correct" or "guaranteed". This does not apply to the user's own feedback: that button may be labelled "Correct" (US-09, P-7).
 - **E-2 Accessibility (RC-14).** Keyboard navigation, contrast, screen-reader labels, status never shown by color alone, and every chart paired with its table.
 - **E-3 Third-party AI.** Use of the LLM provider follows its terms. The model in use is recorded in each audit record (RC-09).
 - **E-4 Honest evaluation.** Report measured results with their denominators. The 80% accuracy figure is a target, not a result (US-13). Never tune on the gold answers.
@@ -77,9 +77,9 @@ Use these words in code, UI text and Issues, with these meanings.
 
 1. AI-drafted Issues start as **Status = Backlog** and **Human Review = Pending**, with the `ai-generated` label.
 2. The owner reviews each one: scope matches the plan, SDD IDs are right, acceptance criteria are testable, design references and images are there, blockers are correct, and verification is defined. Then the owner sets **Reviewed**.
-3. Only Reviewed Issues whose blockers are done move to **Ready**. Agents take Ready Issues only.
-4. One Issue per PR into `dev`, with `Closes #n` and the SDD IDs. Then **Agent Review → Done in Dev**. Promotions go to `staging` and `main` and are approved by the owner.
-5. If an Issue conflicts with the SDD, this file or ARCHITECTURE.md, **stop**: comment on the Issue and move it back to Ready.
+3. Only Reviewed Issues whose blockers are done move to **Ready**. Agents take Ready Issues only, except configuration and documentation work (`CLAUDE.md`, `.claude/**`, `docs/**`), which may run on `chore/*` or `docs/*` branches without an Issue (CLAUDE.md §3). For this no-Issue work, only PRs that change `CLAUDE.md`, `.claude/**`, `docs/ARCHITECTURE.md` or `docs/POLICY.md` need owner approval before merge; Issue PRs follow the full list in CLAUDE.md §5.
+4. One Issue per PR into `dev`, with `Closes #n` and the SDD IDs. Then **In progress → Agent review → Done in Dev**. Only the owner opens and merges `dev → staging` and `staging → main` PRs; AiDev never opens PRs into `staging` or `main`.
+5. If an Issue conflicts with the SDD, this file or ARCHITECTURE.md, **stop**: leave its Status unchanged, add the `needs-owner` label, and comment on the Issue with the exact question. Agents never move an Issue to Ready.
 
 ## 7. Open decisions (owner only)
 
@@ -88,7 +88,7 @@ Use these words in code, UI text and Issues, with these meanings.
 | OD-1 / OQ-01 | LLM model | Open: compare candidates on the gold set |
 | OD-2 / OQ-02 | IR coverage | **Decided:** SDD 2.3 list only |
 | OD-3 / OQ-03 | Gold set and dataset | Open: the owner labels 40–50 questions |
-| OD-4 / OQ-05 | Example values to the LLM | **Decided:** off |
+| OD-4 / OQ-05 | Example values to the LLM | **Decided:** never sent to the LLM (changing this needs an ADR) |
 | OD-5 / RISK-02 | Initial check thresholds | Open: approve in TMP-18 and TMP-23 |
 | OD-6 | Stage transport | **Decided:** polling (ARCHITECTURE.md Section 8) |
 

@@ -1,6 +1,6 @@
 # Querious AI — Implementation Plan (v1.0)
 
-> Markdown copy of `Querious_AI_Implementation_Plan.pdf` for agents. Derived from the Querious AI SDD v1.0 (Final). The PDF is the submitted version; if they differ, the PDF wins.
+> Markdown copy of `Querious_AI_Implementation_Plan.pdf` for agents. Derived from the Querious AI SDD v1.0 (Final). The PDF is the submitted version; if they differ, the PDF wins, except for agent work process and guardrails (task intent, branches, PRs, Project status, stop-and-ask), where `CLAUDE.md` and `docs/POLICY.md` win over both the PDF and this copy.
 
 ## 1 Implementation Overview
 
@@ -339,7 +339,7 @@ Each candidate item becomes one focused GitHub Issue that an implementation agen
 
 ## 6 Risks, Open Decisions & Agent Guardrails
 
-These items complement the SDD (Section 7.2) and the CLAUDE.md hard rules. Open decisions belong to the human owner; an agent that reaches one must stop, comment on the Issue and move it back to Ready instead of choosing.
+These items complement the SDD (Section 7.2) and the CLAUDE.md hard rules. Open decisions belong to the human owner; an agent that reaches one must stop instead of choosing: leave the Issue's Status unchanged, add the `needs-owner` label and comment on the Issue with the exact question. Agents never move an Issue to Ready.
 
 **Open decisions (human owner)**
 
