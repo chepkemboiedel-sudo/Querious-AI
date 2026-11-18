@@ -138,7 +138,9 @@ The only outbound connection is the backend's HTTPS call to the LLM provider. No
 
 ```text
 backend/app/{api,pipeline,llm,audit,semantic}/   backend/tests/
+backend/scripts/  (import_scan.py: H12/H13/H14 CI scan)
 frontend/                                          semantic_layer.yaml
 eval/  (gold set, runner, optional baseline)       docs/{plan,design,adr,issue-assets}/
 data/  (local DuckDB + SQLite files; in .gitignore)
+.github/workflows/  (ci.yml: tests and scan on pull requests into dev)
 ```

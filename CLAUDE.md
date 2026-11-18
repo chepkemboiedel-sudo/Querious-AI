@@ -50,7 +50,7 @@ Every hard rule needs at least one automated test. Required tests:
 - Scope is the Issue's acceptance criteria and non-goals. Nothing more.
 - Exception: configuration and documentation work (`CLAUDE.md`, `.claude/**`, `docs/**`) may run on a `chore/*` or `docs/*` branch without an Issue.
 
-## 4. Commands (expected; confirm after #3)
+## 4. Commands
 
 ```powershell
 # Backend, from backend/. Default "python" on this machine is 3.15; the project needs 3.12.
@@ -65,9 +65,13 @@ npm ci
 npm run dev
 npm test
 npm run build
+
+# H12/H13/H14 import and dependency scan, from the repository root (standard library only)
+py -3.12 backend/scripts/import_scan.py
 ```
 
-- CI runs backend and frontend tests and the H12/H13/H14 import scan. The scan command is defined by #3.
+- CI (`.github/workflows/ci.yml`) runs on every pull request into `dev`: the import scan, backend `pytest`, and frontend `npm test` and `npm run build`. No secrets; read-only token.
+- The scan is also covered by `backend/tests/test_import_scan.py`, so `pytest` fails on a violation too.
 - Use pip with `requirements*.txt` only (no uv).
 - Candidate future improvements (not in #3): linters, formatters and type checkers; a `.gitattributes` for line endings.
 
