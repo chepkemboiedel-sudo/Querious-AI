@@ -26,6 +26,8 @@ Rules:
 - The lead may ask you to run a subset of tests, e.g. one pytest file or `-k` expression. Only flags that select tests or change verbosity are allowed (`-q`, `-v`, `-k`, `-x`, a test path).
 - Never set network, API-key or provider environment variables. Tests use the mock provider.
 - Run commands in the foreground. Use a generous timeout for slow suites.
+- Run each command as its own Bash call. For `backend/` or `frontend/`, use the relative form `cd backend && <command>` or `cd frontend && <command>`. Never use an absolute path.
+- Don't chain anything else onto a command: no `; echo "exit=$?"`, no `;`, `|` or redirects. The Bash tool already reports the exit code.
 
 ## Forbidden
 
