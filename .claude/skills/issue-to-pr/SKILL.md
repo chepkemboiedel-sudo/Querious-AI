@@ -70,4 +70,11 @@ Closes #<n>
 1. Check the no-self-merge list in CLAUDE.md §5: the Issue number, and the changed paths (`git diff --name-only dev...HEAD`).
 2. **If the PR is on the list, or the reviewer's final verdict isn't PASS:** stop. Report the PR link and wait. Merge only after the owner tells you to, and only if `gh pr view <n> --json reviews,mergeStateStatus` shows an APPROVED review from chepkemboiedel-sudo on the current head commit.
 3. **Otherwise**, when the checks pass (CLAUDE.md §5): `gh pr merge <n> --merge`, then move Status → **Done in Dev**.
-4. Never run `gh pr review --approve`. Never open, edit or merge PRs into `staging` or `main`. Never move anything to Ready or set Human Review.
+4. **Status check after the merge (both paths above).** On #3, Project workflows closed the Issue and set Released a few seconds after Done in Dev. The owner fixed this by changing the Auto-close trigger. This check stays as a safeguard. Don't use `sleep`. Note the time you set Done in Dev, do the other post-merge steps first (`git switch dev`, `git pull --ff-only`, `git log --oneline -3`), then re-read both. If less than 15 seconds have passed since you set Done in Dev, re-read once more before the final report:
+   - `gh issue view <n> --json state,stateReason`
+   - `gh project item-list 4 --owner chepkemboiedel-sudo --format json --limit 200 --jq '.items[] | select(.content.number==<n>) | .status'`
+
+   If the second re-read is still under 15 seconds, don't wait; report the real times.
+
+   If the Issue is closed or Status is not Done in Dev, don't reopen it or change Status yourself. Report it to the owner with CLAUDE.md §8 "How to ask": add `needs-owner` and comment with the state and Status you read and the times. Otherwise report "Done in Dev, Issue open".
+5. Never run `gh pr review --approve`. Never open, edit or merge PRs into `staging` or `main`. Never move anything to Ready or set Human Review.
