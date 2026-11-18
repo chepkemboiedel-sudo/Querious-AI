@@ -30,8 +30,12 @@ from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Directories never scanned: environments, dependencies, build output, VCS and tool config.
+# Directories not scanned: environments, dependencies, build output, VCS and tool config.
+# Inside source trees (STRICT_TREES) only __pycache__ is skipped, so code cannot hide
+# from the scan in a folder that happens to be called build/, dist/ or .something/.
 SKIP_DIRS = {"node_modules", "__pycache__", "dist", "build", "venv", "site-packages"}
+STRICT_TREES = (PurePosixPath("backend/app"), PurePosixPath("eval"))
+STRICT_SKIP_DIRS = {"__pycache__"}
 
 LLM_PACKAGE = PurePosixPath("backend/app/llm")
 APP_PACKAGE = PurePosixPath("backend/app")
@@ -134,7 +138,12 @@ def _is_under(rel: PurePosixPath, package: PurePosixPath) -> bool:
 
 def _iter_files(root: Path):
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith("."))
+        here = PurePosixPath(Path(dirpath).relative_to(root).as_posix())
+        if any(_is_under(here, tree) for tree in STRICT_TREES):
+            dirnames[:] = sorted(d for d in dirnames if d not in STRICT_SKIP_DIRS)
+        else:
+            dirnames[:] = sorted(d for d in dirnames
+                                 if not (d in SKIP_DIRS or d.startswith(".")))
         for filename in sorted(filenames):
             path = Path(dirpath) / filename
             yield path, PurePosixPath(path.relative_to(root).as_posix())
@@ -196,13 +205,29 @@ def _scan_python(path: Path, rel: PurePosixPath) -> list[Violation]:
 def _scan_requirements(path: Path, rel: PurePosixPath) -> list[Violation]:
     found = []
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        line = raw.split("#", 1)[0].strip()
-        if not line or line.startswith("-"):
+        line = raw.strip()
+        if not line or line.startswith("#"):
             continue
-        match = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", line)
-        if match and _normalise_dist(match.group(0)) in PY_DIST_HOSTED_DB_OR_ACCOUNTS:
+        editable = re.match(r"(-e|--editable)(\s|=)", line)
+        if editable or (re.match(r"[A-Za-z][A-Za-z0-9+.-]*://", line)):
+            # Editable or bare-URL requirement: the package name is only in #egg=.
+            egg = re.search(r"[#&]egg=([A-Za-z0-9][A-Za-z0-9._-]*)", line)
+            if not egg:
+                found.append(Violation("SCAN", str(rel), number,
+                                       "cannot tell which package this requirement installs; "
+                                       "add #egg=<name> or use '<name> @ <url>'"))
+                continue
+            name = egg.group(1)
+        elif line.startswith("-"):
+            continue  # pip options: -r, -c, --index-url, ...
+        else:
+            match = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", line)
+            if not match:
+                continue
+            name = match.group(0)
+        if _normalise_dist(name) in PY_DIST_HOSTED_DB_OR_ACCOUNTS:
             found.append(Violation("H12", str(rel), number,
-                                   f"hosted-database or account dependency '{match.group(0)}'"))
+                                   f"hosted-database or account dependency '{name}'"))
     return found
 
 

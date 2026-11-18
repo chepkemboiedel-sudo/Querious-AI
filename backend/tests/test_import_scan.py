@@ -80,6 +80,21 @@ def test_h12_requirements_entry_is_caught(tmp_path: Path, line: str) -> None:
     assert rules(tmp_path) == ["H12"]
 
 
+@pytest.mark.parametrize("line", [
+    "-e git+https://github.com/psycopg/psycopg2.git#egg=psycopg2",
+    "https://example.invalid/pymongo-4.0.tar.gz#egg=pymongo",
+    "psycopg2 @ https://example.invalid/psycopg2.tar.gz",
+])
+def test_h12_editable_and_url_requirements_are_caught(tmp_path: Path, line: str) -> None:
+    plant(tmp_path, "backend/requirements.txt", f"-r base.txt\n{line}\n")
+    assert rules(tmp_path) == ["H12"]
+
+
+def test_unnamed_url_requirement_fails_closed(tmp_path: Path) -> None:
+    plant(tmp_path, "backend/requirements-dev.txt", "-e git+https://example.invalid/pkg.git\n")
+    assert rules(tmp_path) == ["SCAN"]
+
+
 def test_h12_package_json_dependency_is_caught(tmp_path: Path) -> None:
     plant(tmp_path, "frontend/package.json",
           json.dumps({"dependencies": {"pg": "^8.0.0"}, "devDependencies": {"@auth0/auth0-react": "^2"}}))
@@ -109,6 +124,13 @@ def test_h14_eval_may_import_pipeline(tmp_path: Path) -> None:
 def test_unparsable_python_fails_closed(tmp_path: Path) -> None:
     plant(tmp_path, "backend/app/api/broken.py", "def (:\n")
     assert rules(tmp_path) == ["SCAN"]
+
+
+@pytest.mark.parametrize("folder", ["build", "dist", ".hidden", "node_modules", "venv"])
+def test_source_trees_are_scanned_in_any_folder(tmp_path: Path, folder: str) -> None:
+    plant(tmp_path, f"backend/app/pipeline/{folder}/x.py", "import anthropic\n")
+    plant(tmp_path, f"eval/{folder}/y.py", "import openai\n")
+    assert rules(tmp_path) == ["H13", "H13"]
 
 
 def test_dependency_and_hidden_dirs_are_skipped(tmp_path: Path) -> None:
