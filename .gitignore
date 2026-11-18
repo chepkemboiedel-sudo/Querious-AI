@@ -1,6 +1,3 @@
-# Minimal .gitignore for the Claude Code guardrails (chore/guardrails).
-# Issue #3 extends it with data/ and build output.
-
 # Claude Code: personal settings and the local guard log
 .claude/settings.local.json
 .claude/hooks/*.log
@@ -9,3 +6,33 @@
 .env
 .env.*
 !.env.example
+
+# Local data: the DuckDB dataset and the SQLite audit log (ARCHITECTURE.md Section 9)
+data/
+*.duckdb
+*.duckdb.wal
+*.sqlite
+*.sqlite3
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node and frontend build output
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+coverage/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

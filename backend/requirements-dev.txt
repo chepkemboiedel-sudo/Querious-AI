@@ -1,0 +1,3 @@
+# Test-only dependencies. pytest uses the mock LLM provider only; no network (AR-11).
+pytest==9.2.0
+httpx==0.28.1
