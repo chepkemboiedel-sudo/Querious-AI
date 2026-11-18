@@ -1,0 +1,11 @@
+# Minimal .gitignore for the Claude Code guardrails (chore/guardrails).
+# Issue #3 extends it with data/ and build output.
+
+# Claude Code: personal settings and the local guard log
+.claude/settings.local.json
+.claude/hooks/*.log
+
+# Secrets (POLICY D-2). .env.example stays tracked.
+.env
+.env.*
+!.env.example

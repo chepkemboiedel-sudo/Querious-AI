@@ -152,5 +152,11 @@ To be added in later steps. List each one here with a one-line purpose.
 - Agents (`.claude/agents/`):
   - `guardrail-reviewer`: read-only review of a diff against hard rules, contracts, scope and DoD. Use before Agent review, after fixes, and before no-self-merge merges. You pass four scratchpad files: the diff, the Issue, the PR description draft and the test-evidence-runner report.
   - `test-evidence-runner`: runs only the §4 test/build commands and returns unedited results. Use before opening a PR, after fixes, and before merge.
-- Skills: `.claude/skills/` (none yet)
-- Rules: `.claude/rules/` (none yet)
+- Skills (`.claude/skills/`):
+  - `issue-to-pr`: the Issue → PR workflow (eligibility, status moves, branch, runner and reviewer rounds with the stop rule, §6 PR template, merge decision). Use for every Issue.
+- Hooks and shared settings (`.claude/settings.json`, `.claude/hooks/guard_commands.py`, run with `py -3.12`):
+  - **Deny:** force-push; `gh pr create` without `--base dev`; PR base changes to `staging`/`main`; reading `.env`/`.env.*` (not `.env.example`).
+  - **Deny, owner runs it with `!`:** `git reset --hard`, `git branch -D`, `git push --delete`, `git clean -f`. The block message gives the exact `! <command>`.
+  - **test-evidence-runner Bash allowlist:** log-only (`.claude/hooks/guard.log`) until the owner switches it to enforce.
+  - Self-test: `py -3.12 -B -m unittest discover -s .claude/hooks -v`.
+- Rules: `.claude/rules/` (none yet; backend/frontend rules follow #3)
