@@ -1,0 +1,13 @@
+# Not expressible as a declared join plus a filter with a distinct count.
+format_version: 1
+datasets:
+  sample:
+    joins:
+      - name: orders_to_customers
+        description: Each order belongs to the customer with the same customer_id.
+        left: orders.customer_id
+        right: customers.customer_id
+    terms:
+      - name: repeat customer
+        description: A customer with more than one order.
+        sql: SELECT customer_id FROM orders GROUP BY 1 HAVING count(*) > 1

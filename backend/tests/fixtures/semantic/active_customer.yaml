@@ -1,0 +1,26 @@
+# SDD US-12 example: active customer = a customer with an order in the last 90 days.
+format_version: 1
+datasets:
+  sample:
+    joins:
+      - name: orders_to_customers
+        description: Each order belongs to the customer with the same customer_id.
+        left: orders.customer_id
+        right: customers.customer_id
+    terms:
+      - name: active customer
+        description: A customer with an order in the last 90 days.
+        count_distinct: customers.customer_id
+        join: orders_to_customers
+        filter: {column: orders.order_date, op: within_last_days, value: 90}
+    metrics:
+      - name: total order amount
+        description: The sum of the amount of every order.
+        aggregation: sum
+        column: orders.amount
+  Valid_Sales.CSV:
+    metrics:
+      - name: total revenue
+        description: The sum of revenue over every row.
+        aggregation: sum
+        column: valid_sales.revenue

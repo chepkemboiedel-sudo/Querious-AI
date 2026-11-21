@@ -24,6 +24,11 @@ While the new file is still open, the loader also computes the schema profile (n
 inferred types, row counts), the example values for the Data overview and the dataset
 fingerprint (TMP-04, ``schema_profile``), and stores them with the summary. Nothing opens
 the dataset again to read them: after a load only the executor opens it.
+
+Before the swap, the dataset's section of ``semantic_layer.yaml`` is validated against the
+new schema profile (TMP-05, ``semantic_context``). If it is rejected, the load fails with
+that error and the previous active dataset stays active. A dataset with no section loads
+normally and has no terms, metrics or joins.
 """
 
 from __future__ import annotations
@@ -52,7 +57,9 @@ from app.pipeline.schema_profile import (
     format_fingerprint,
     profile_table,
 )
+from app.pipeline.semantic_context import semantic_layer_for
 from app.pipeline.storage import active_db_path, active_meta_path, data_dir, staging_dir
+from app.semantic.loader import ActiveSemanticLayer, SemanticLayerError
 
 MAX_UPLOAD_MB = 50
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
@@ -126,6 +133,7 @@ def load_csv_upload(source: BinaryIO, filename: str) -> DatasetSummary:
             table = table_name_for(filename)
             tables, examples = _build_database(staging / "dataset.duckdb", [(table, csv_path, delimiter)])
             summary = DatasetSummary(Path(filename).name, "upload", _now(), fingerprint, tables, examples)
+            _check_semantic_layer(summary)
             _activate(staging / "dataset.duckdb", summary)
             return summary
         finally:
@@ -144,6 +152,7 @@ def load_sample() -> DatasetSummary:
             tables, examples = _build_database(staging / "dataset.duckdb", sources)
             fingerprint = fingerprint_files([(table, path) for table, path, _ in sources])
             summary = DatasetSummary(SAMPLE_NAME, "sample", _now(), fingerprint, tables, examples)
+            _check_semantic_layer(summary)
             _activate(staging / "dataset.duckdb", summary)
             return summary
         finally:
@@ -163,6 +172,23 @@ def active_dataset() -> DatasetSummary | None:
     if "fingerprint" not in data:
         return None
     return DatasetSummary.from_dict(data)
+
+
+def active_semantic_layer() -> ActiveSemanticLayer | None:
+    """The active dataset's validated semantic-layer section, or ``None`` with no active dataset.
+
+    The section is read from ``semantic_layer.yaml`` and validated again on every call, so an
+    offline edit is checked before it is used. If it is rejected, raises ``DatasetError`` with
+    reason ``semantic_layer`` (the dataset itself stays active), so callers outside the
+    pipeline never handle semantic-layer types (ARCHITECTURE.md Section 4).
+    """
+    summary = active_dataset()
+    if summary is None:
+        return None
+    try:
+        return semantic_layer_for(summary.kind, summary.name, summary.tables)
+    except SemanticLayerError as exc:
+        raise DatasetError(str(exc), reason="semantic_layer") from None
 
 
 def table_name_for(filename: str) -> str:
@@ -299,6 +325,14 @@ def _build_database(
     finally:
         con.close()
     return tables, examples
+
+
+def _check_semantic_layer(summary: DatasetSummary) -> None:
+    """Reject the load if the dataset's section does not match its schema (US-12)."""
+    try:
+        semantic_layer_for(summary.kind, summary.name, summary.tables)
+    except SemanticLayerError as exc:
+        raise DatasetError(str(exc), reason="semantic_layer") from None
 
 
 def _activate(new_db: Path, summary: DatasetSummary) -> None:
