@@ -20,14 +20,17 @@ accepted; a real header with a numeric name such as ``2024`` is rejected (rename
 ASSUMPTION-01: column names are expected to be in English. This is documented, not
 enforced: any non-empty, unique header name is accepted.
 
-Out of scope here (TMP-04): column types, example values, the schema profile and the
-dataset fingerprint. The summary below holds table and column names only.
+While the new file is still open, the loader also computes the schema profile (names,
+inferred types, row counts), the example values for the Data overview and the dataset
+fingerprint (TMP-04, ``schema_profile``), and stores them with the summary. Nothing opens
+the dataset again to read them: after a load only the executor opens it.
 """
 
 from __future__ import annotations
 
 import codecs
 import csv
+import hashlib
 import io
 import json
 import os
@@ -42,6 +45,13 @@ from typing import BinaryIO
 
 import duckdb
 
+from app.pipeline.schema_profile import (
+    ExampleValues,
+    TableProfile,
+    fingerprint_files,
+    format_fingerprint,
+    profile_table,
+)
 from app.pipeline.storage import active_db_path, active_meta_path, data_dir, staging_dir
 
 MAX_UPLOAD_MB = 50
@@ -73,17 +83,15 @@ class DatasetError(ValueError):
 
 
 @dataclass(frozen=True)
-class TableSummary:
-    name: str
-    columns: list[str]
-
-
-@dataclass(frozen=True)
 class DatasetSummary:
+    """What is stored about the active dataset. ``examples`` is for screen 2 only (H4)."""
+
     name: str
     kind: str  # "upload" or "sample"
     loaded_at: str
-    tables: list[TableSummary] = field(default_factory=list)
+    fingerprint: str
+    tables: list[TableProfile] = field(default_factory=list)
+    examples: ExampleValues = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -94,7 +102,9 @@ class DatasetSummary:
             name=data["name"],
             kind=data["kind"],
             loaded_at=data["loaded_at"],
-            tables=[TableSummary(t["name"], list(t["columns"])) for t in data["tables"]],
+            fingerprint=data["fingerprint"],
+            tables=[TableProfile.from_dict(t) for t in data["tables"]],
+            examples={t: dict(cols) for t, cols in data["examples"].items()},
         )
 
 
@@ -111,11 +121,11 @@ def load_csv_upload(source: BinaryIO, filename: str) -> DatasetSummary:
         staging = _fresh_staging_dir()
         try:
             csv_path = staging / "upload.csv"
-            _copy_limited(source, csv_path)
+            fingerprint = _copy_limited(source, csv_path)
             delimiter = _check_header(csv_path)
             table = table_name_for(filename)
-            tables = _build_database(staging / "dataset.duckdb", [(table, csv_path, delimiter)])
-            summary = DatasetSummary(Path(filename).name, "upload", _now(), tables)
+            tables, examples = _build_database(staging / "dataset.duckdb", [(table, csv_path, delimiter)])
+            summary = DatasetSummary(Path(filename).name, "upload", _now(), fingerprint, tables, examples)
             _activate(staging / "dataset.duckdb", summary)
             return summary
         finally:
@@ -131,8 +141,9 @@ def load_sample() -> DatasetSummary:
             for table in SAMPLE_TABLES:
                 path = SAMPLE_DIR / f"{table}.csv"
                 sources.append((table, path, _check_header(path)))
-            tables = _build_database(staging / "dataset.duckdb", sources)
-            summary = DatasetSummary(SAMPLE_NAME, "sample", _now(), tables)
+            tables, examples = _build_database(staging / "dataset.duckdb", sources)
+            fingerprint = fingerprint_files([(table, path) for table, path, _ in sources])
+            summary = DatasetSummary(SAMPLE_NAME, "sample", _now(), fingerprint, tables, examples)
             _activate(staging / "dataset.duckdb", summary)
             return summary
         finally:
@@ -140,11 +151,18 @@ def load_sample() -> DatasetSummary:
 
 
 def active_dataset() -> DatasetSummary | None:
-    """The active dataset's summary, read from disk, so it survives a restart."""
+    """The active dataset's stored summary and profile, read from disk, so it survives a restart.
+
+    It never opens the dataset itself. A summary stored before TMP-04 has no profile or
+    fingerprint; it is treated as no active dataset, so the user loads the data again.
+    """
     meta, db = active_meta_path(), active_db_path()
     if not (meta.is_file() and db.is_file()):
         return None
-    return DatasetSummary.from_dict(json.loads(meta.read_text(encoding="utf-8")))
+    data = json.loads(meta.read_text(encoding="utf-8"))
+    if "fingerprint" not in data:
+        return None
+    return DatasetSummary.from_dict(data)
 
 
 def table_name_for(filename: str) -> str:
@@ -164,9 +182,13 @@ def _fresh_staging_dir() -> Path:
     return path
 
 
-def _copy_limited(source: BinaryIO, target: Path) -> None:
-    """Copy the upload, stopping as soon as it passes the size limit; check it is text."""
+def _copy_limited(source: BinaryIO, target: Path) -> str:
+    """Copy the upload, stopping as soon as it passes the size limit; check it is text.
+
+    Returns the dataset fingerprint: a SHA-256 of exactly the bytes that were copied.
+    """
     decoder = codecs.getincrementaldecoder("utf-8")()
+    digest = hashlib.sha256()
     size = 0
     with target.open("wb") as out:
         while chunk := source.read(CHUNK_BYTES):
@@ -177,10 +199,12 @@ def _copy_limited(source: BinaryIO, target: Path) -> None:
                     reason="too_large",
                 )
             _check_text(decoder, chunk)
+            digest.update(chunk)
             out.write(chunk)
     _check_text(decoder, b"", final=True)
     if size == 0:
         raise DatasetError("The file is empty. Upload a CSV with a header row and data.", reason="empty")
+    return format_fingerprint(digest.hexdigest())
 
 
 def _check_text(decoder: codecs.IncrementalDecoder, chunk: bytes, final: bool = False) -> None:
@@ -242,9 +266,12 @@ def _guess_delimiter(first_line: str) -> str:
     return best if counts[best] else ","
 
 
-def _build_database(db_path: Path, sources: list[tuple[str, Path, str]]) -> list[TableSummary]:
-    """Write every table into a new DuckDB file, then close it. The only write, ever."""
-    tables: list[TableSummary] = []
+def _build_database(
+    db_path: Path, sources: list[tuple[str, Path, str]]
+) -> tuple[list[TableProfile], ExampleValues]:
+    """Write every table into a new DuckDB file, profile it, then close it. The only write, ever."""
+    tables: list[TableProfile] = []
+    examples: ExampleValues = {}
     con = duckdb.connect(str(db_path), config=dict(LOAD_CONFIG))
     try:
         for table, csv_path, delimiter in sources:
@@ -260,20 +287,18 @@ def _build_database(db_path: Path, sources: list[tuple[str, Path, str]]) -> list
                     "(for example, a different number of columns). Fix the file and upload it again.",
                     reason="unreadable",
                 ) from exc
-            rows = con.execute(f'SELECT count(*) FROM "{table}"').fetchone()[0]
-            if rows == 0:
+            profile, table_examples = profile_table(con, table)
+            if profile.row_count == 0:
                 raise DatasetError(
                     "The file has a header row but no data rows. Upload a CSV with data.",
                     reason="no_rows",
                 )
-            columns = [r[0] for r in con.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = ? ORDER BY ordinal_position", [table]).fetchall()]
-            tables.append(TableSummary(table, columns))
+            tables.append(profile)
+            examples[table] = table_examples
         con.execute("CHECKPOINT").fetchall()
     finally:
         con.close()
-    return tables
+    return tables, examples
 
 
 def _activate(new_db: Path, summary: DatasetSummary) -> None:

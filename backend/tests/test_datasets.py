@@ -10,6 +10,10 @@ from app.pipeline import executor, loader
 from tests.conftest import FIXTURES, upload
 
 
+def column_names(table: dict) -> list[str]:
+    return [c["name"] for c in table["columns"]]
+
+
 def tables_in_active_file() -> set[str]:
     con = executor.connect_read_only()
     try:
@@ -27,9 +31,8 @@ def test_valid_csv_loads_with_table_and_columns(client: TestClient) -> None:
     dataset = response.json()["dataset"]
     assert dataset["kind"] == "upload"
     assert dataset["name"] == "valid_sales.csv"
-    assert dataset["tables"] == [
-        {"name": "valid_sales", "columns": ["region", "product", "units", "revenue"]}
-    ]
+    assert [t["name"] for t in dataset["tables"]] == ["valid_sales"]
+    assert column_names(dataset["tables"][0]) == ["region", "product", "units", "revenue"]
     # load-time assertion: the table is in the DuckDB file and readable read-only
     con = executor.connect_read_only()
     try:
@@ -43,7 +46,7 @@ def test_semicolon_csv_and_utf8_bom_load() -> None:
 
     content = "﻿city;visits\nNorthvale;4\nEastport;9\n".encode("utf-8")
     summary = loader.load_csv_upload(BytesIO(content), "visits.csv")
-    assert summary.tables[0].columns == ["city", "visits"]
+    assert [c.name for c in summary.tables[0].columns] == ["city", "visits"]
 
 
 def test_table_name_is_made_safe() -> None:
@@ -145,7 +148,7 @@ def test_sample_loads_two_tables_with_one_join_key(client: TestClient) -> None:
     dataset = response.json()["dataset"]
     assert dataset["kind"] == "sample"
     assert [t["name"] for t in dataset["tables"]] == ["customers", "orders"]
-    columns = {t["name"]: t["columns"] for t in dataset["tables"]}
+    columns = {t["name"]: column_names(t) for t in dataset["tables"]}
     shared = set(columns["customers"]) & set(columns["orders"])
     assert shared == {"customer_id"}  # the one join: orders.customer_id -> customers.customer_id
 
@@ -204,7 +207,7 @@ def test_last_dataset_is_available_after_restart(client: TestClient) -> None:
 
     dataset = restarted.get("/datasets/active").json()["dataset"]
     assert dataset["name"] == "valid_sales.csv"
-    assert dataset["tables"][0]["columns"] == ["region", "product", "units", "revenue"]
+    assert column_names(dataset["tables"][0]) == ["region", "product", "units", "revenue"]
     con = executor.connect_read_only()
     try:
         assert con.execute("SELECT sum(units) FROM valid_sales").fetchone()[0] == 22
@@ -241,4 +244,4 @@ def test_non_english_column_names_are_accepted(client: TestClient) -> None:
     response = upload(client, "verkauf.csv", content)
 
     assert response.status_code == 200
-    assert response.json()["dataset"]["tables"][0]["columns"] == ["région", "menge"]
+    assert column_names(response.json()["dataset"]["tables"][0]) == ["région", "menge"]

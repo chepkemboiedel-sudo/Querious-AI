@@ -1,7 +1,7 @@
 """Where the active dataset lives on disk (ARCHITECTURE.md Section 9).
 
 Everything is local (H12): one DuckDB file for the one active dataset, plus a small JSON
-file with its display name and table/column names, both in the local ``data/`` folder,
+file with its display name, schema profile, example values and fingerprint, both in the local ``data/`` folder,
 which is in ``.gitignore``. Set ``QUERIOUS_DATA_DIR`` to use another folder (tests do).
 """
 
