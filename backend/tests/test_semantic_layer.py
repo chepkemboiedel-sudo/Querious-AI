@@ -58,7 +58,7 @@ def rejection(path: Path, schema: dict = SAMPLE_SCHEMA) -> str:
 def test_format_has_one_section_per_dataset_with_terms_metrics_and_joins() -> None:
     import yaml
 
-    file = SemanticLayerFile.model_validate(yaml.safe_load((SEMANTIC / "active_customer.yaml").read_text()))
+    file = SemanticLayerFile.model_validate(yaml.safe_load((SEMANTIC / "active_customer.yaml").read_text(encoding="utf-8")))
     assert set(file.datasets) == {"sample", "Valid_Sales.CSV"}
 
     sample = DatasetSection.model_validate(file.datasets["sample"])
@@ -104,6 +104,18 @@ def test_the_file_needs_its_format_version(tmp_path: Path) -> None:
     path = tmp_path / "semantic_layer.yaml"
     path.write_text("datasets: {}\n", encoding="utf-8")
     assert rejection(path) == "semantic_layer.yaml: the file is missing 'format_version'."
+
+
+def test_a_section_that_is_not_a_mapping_names_its_dataset(tmp_path: Path) -> None:
+    path = tmp_path / "semantic_layer.yaml"
+    path.write_text("format_version: 1\ndatasets:\n  sample: [a, b]\n  other.csv: [c]\n", encoding="utf-8")
+
+    assert rejection(path) == (
+        "semantic_layer.yaml, dataset 'sample': the section must be a mapping with "
+        "'joins', 'terms' and 'metrics'."
+    )
+    # Another dataset's broken section does not block this one.
+    assert load_section("valid_sales.csv", {"valid_sales": {"revenue": "DOUBLE"}}, path).section == DatasetSection()
 
 
 def test_invalid_yaml_names_the_line(use_layer) -> None:

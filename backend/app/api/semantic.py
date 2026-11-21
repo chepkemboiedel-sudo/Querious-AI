@@ -7,8 +7,7 @@ or deletes a term.
 
 from fastapi import APIRouter, HTTPException
 
-from app.pipeline.loader import active_semantic_layer
-from app.semantic.loader import SemanticLayerError
+from app.pipeline import loader
 
 router = APIRouter(prefix="/semantic", tags=["semantic"])
 
@@ -17,10 +16,10 @@ router = APIRouter(prefix="/semantic", tags=["semantic"])
 def list_terms() -> dict:
     """Every term of the active dataset with its plain-English description, and the version."""
     try:
-        layer = active_semantic_layer()
-    except SemanticLayerError as error:
+        layer = loader.active_semantic_layer()
+    except loader.DatasetError as error:
         raise HTTPException(
-            status_code=422, detail={"reason": "semantic_layer", "message": str(error)}
+            status_code=422, detail={"reason": error.reason, "message": str(error)}
         ) from None
     if layer is None:
         return {"semantic_layer": None}

@@ -48,7 +48,7 @@ This module checks only the shape. Checking the names against the dataset's sche
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -145,4 +145,4 @@ class SemanticLayerFile(_Strict):
     """The whole file. Sections stay raw here: only the active dataset's section is parsed."""
 
     format_version: Literal[1]
-    datasets: dict[str, Union[dict, None]] = Field(default_factory=dict)
+    datasets: dict[str, Any] = Field(default_factory=dict)

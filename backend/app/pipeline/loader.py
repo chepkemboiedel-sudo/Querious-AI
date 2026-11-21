@@ -178,12 +178,17 @@ def active_semantic_layer() -> ActiveSemanticLayer | None:
     """The active dataset's validated semantic-layer section, or ``None`` with no active dataset.
 
     The section is read from ``semantic_layer.yaml`` and validated again on every call, so an
-    offline edit is checked before it is used. Raises ``SemanticLayerError`` if it is rejected.
+    offline edit is checked before it is used. If it is rejected, raises ``DatasetError`` with
+    reason ``semantic_layer`` (the dataset itself stays active), so callers outside the
+    pipeline never handle semantic-layer types (ARCHITECTURE.md Section 4).
     """
     summary = active_dataset()
     if summary is None:
         return None
-    return semantic_layer_for(summary.kind, summary.name, summary.tables)
+    try:
+        return semantic_layer_for(summary.kind, summary.name, summary.tables)
+    except SemanticLayerError as exc:
+        raise DatasetError(str(exc), reason="semantic_layer") from None
 
 
 def table_name_for(filename: str) -> str:

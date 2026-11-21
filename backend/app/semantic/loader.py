@@ -105,7 +105,13 @@ def _find_section(file: SemanticLayerFile, dataset_key: str) -> dict | None:
         )
     if not matches:
         return None
-    return file.datasets[matches[0]] or {}
+    section = file.datasets[matches[0]]
+    if section is not None and not isinstance(section, dict):
+        raise SemanticLayerError(
+            f"{FILE_NAME}, dataset '{matches[0]}': the section must be a mapping with "
+            "'joins', 'terms' and 'metrics'."
+        )
+    return section or {}
 
 
 def _parse_section(dataset_key: str, raw: dict | None) -> DatasetSection:
