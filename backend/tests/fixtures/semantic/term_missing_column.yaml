@@ -1,0 +1,14 @@
+format_version: 1
+datasets:
+  sample:
+    joins:
+      - name: orders_to_customers
+        description: Each order belongs to the customer with the same customer_id.
+        left: orders.customer_id
+        right: customers.customer_id
+    terms:
+      - name: active customer
+        description: A customer with an order in the last 90 days.
+        count_distinct: customers.customer_id
+        join: orders_to_customers
+        filter: {column: orders.order_dt, op: within_last_days, value: 90}

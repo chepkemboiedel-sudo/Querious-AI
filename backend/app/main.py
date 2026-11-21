@@ -4,7 +4,9 @@ from fastapi import FastAPI
 
 from app.api.datasets import router as datasets_router
 from app.api.health import router as health_router
+from app.api.semantic import router as semantic_router
 
 app = FastAPI(title="Querious AI")
 app.include_router(health_router)
 app.include_router(datasets_router)
+app.include_router(semantic_router)

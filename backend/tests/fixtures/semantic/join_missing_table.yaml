@@ -1,0 +1,8 @@
+format_version: 1
+datasets:
+  sample:
+    joins:
+      - name: orders_to_shops
+        description: Each order was placed in a shop.
+        left: orders.customer_id
+        right: shops.shop_id

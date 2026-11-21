@@ -1,0 +1,28 @@
+# Querious AI semantic layer (US-12, RC-05, DD-03, H8).
+#
+# Edited offline by the data steward. One section per dataset under `datasets:`:
+#   sample           the built-in sample dataset (customers and orders)
+#   <file name>.csv  an uploaded CSV, keyed by its file name (case is ignored)
+# A dataset with no section has no terms, metrics or joins; that is not an error.
+# The format is defined and documented in backend/app/semantic/schema.py.
+# The active dataset's section is validated against its schema each time it becomes active.
+
+format_version: 1
+
+datasets:
+  sample:
+    joins:
+      - name: orders_to_customers
+        description: Each order belongs to the customer with the same customer_id.
+        left: orders.customer_id
+        right: customers.customer_id
+
+    terms:
+      - name: active customer
+        description: A customer with an order in the last 90 days.
+        count_distinct: customers.customer_id
+        join: orders_to_customers
+        filter:
+          column: orders.order_date
+          op: within_last_days
+          value: 90

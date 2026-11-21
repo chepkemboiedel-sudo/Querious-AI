@@ -34,6 +34,14 @@ One dataset is active at a time. It is stored in the local `data/` folder (not c
 
 Column names are assumed to be in English (ASSUMPTION-01). This is not enforced.
 
+### Business terms (`semantic_layer.yaml`)
+
+A data steward defines business terms, metrics and allowed joins offline in `semantic_layer.yaml` at the repository root, one section per dataset: `sample` for the built-in sample, or an upload's file name (case is ignored). The format is documented in `backend/app/semantic/schema.py`. Set `QUERIOUS_SEMANTIC_LAYER` to read another file.
+
+- The active dataset's section is checked against its schema every time it becomes active. A definition that refers to a missing table or column, or that the format cannot express, is rejected with a message that names it, and the load fails (the previous dataset stays active).
+- A dataset with no section has no terms, metrics or joins. That is not an error.
+- `GET /semantic/terms`: every term of the active dataset with its description, plus the semantic-layer `version` recorded for audit, or `null` with no active dataset. No endpoint can edit terms.
+
 ### Frontend (`frontend/`)
 
 ```powershell
