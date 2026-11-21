@@ -60,9 +60,11 @@ def test_table_name_is_made_safe() -> None:
         ("notes.txt", (FIXTURES / "notes.txt").read_bytes(), 415, "not_csv", "Only .csv files"),
         ("image.csv", b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", 415, "not_csv", "not a"),
         ("latin1.csv", "name\nJos\xe9\n".encode("latin-1"), 415, "not_csv", "UTF-8"),
-        ("headerless.csv", (FIXTURES / "headerless.csv").read_bytes(), 422, "no_header", "header"),
-        ("dupes.csv", b"id,Name,name\n1,a,b\n", 422, "no_header", "more than once"),
-        ("blank_name.csv", b"id,,amount\n1,a,2\n", 422, "no_header", "empty column name"),
+        ("headerless.csv", (FIXTURES / "headerless.csv").read_bytes(), 422, "no_header",
+         "The column name '1' is a number"),
+        ("dupes.csv", b"id,Name,name\n1,a,b\n", 422, "no_header", "'name' more than once"),
+        ("blank_name.csv", b"id,,amount\n1,a,2\n", 422, "no_header",
+         "Column 2 in the header row has no name. Give it a name, for example 'column_2'"),
         ("empty.csv", b"", 422, "empty", "empty"),
         ("header_only.csv", (FIXTURES / "header_only.csv").read_bytes(), 422, "no_rows", "no data rows"),
         ("ragged.csv", (FIXTURES / "ragged.csv").read_bytes(), 422, "unreadable", "don't match the header"),
@@ -78,6 +80,16 @@ def test_invalid_file_is_rejected_with_clear_message(
     assert detail["reason"] == reason
     assert words in detail["message"]
     assert client.get("/datasets/active").json() == {"dataset": None}
+
+
+def test_numeric_header_name_is_named_with_a_rename_suggestion(client: TestClient) -> None:
+    # Owner decision 1A (Issue #4): a numeric name is rejected; the message names it and suggests a rename.
+    response = upload(client, "by_year.csv", b"region,2024,2025\nNorth,10,12\n")
+
+    assert response.status_code == 422
+    message = response.json()["detail"]["message"]
+    assert "The column name '2024' is a number" in message
+    assert "Rename it, for example '2024' → 'y2024'" in message
 
 
 def test_file_over_50_mb_is_rejected(client: TestClient) -> None:

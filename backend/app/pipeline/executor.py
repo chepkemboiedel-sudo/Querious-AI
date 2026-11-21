@@ -12,7 +12,9 @@ What the connection guarantees:
 - the configuration is locked, so a query cannot switch these settings back on.
 
 DuckDB still lets a connection create ``TEMP`` objects. They live only in that
-connection's memory, are discarded when it closes and never touch the dataset file.
+connection's memory, are discarded when it closes and never touch the dataset file. Owner
+decision 2A on Issue #4: "write" here means a change to the dataset file; TMP-12's
+single-``SELECT`` gate (#21) must also reject ``TEMP`` statements, with a test.
 
 Note: in DuckDB 2.x an error is raised when the result is fetched, not when
 ``execute()`` returns, so callers must fetch (or close) to see the failure.

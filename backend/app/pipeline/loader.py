@@ -10,10 +10,12 @@ and at least one data row, at most 50 MB (``MAX_UPLOAD_BYTES``). Anything else i
 rejected with a ``DatasetError`` whose message says why. Nothing fails silently: either
 the load completes and the dataset is active, or an error is raised.
 
-The header check is deterministic. The first row is the header, and it is rejected when
-a name is empty, two names are the same (DuckDB names are case-insensitive), or a name is
-a number (a sign that the first row is data). A header-less file whose first row is all
-text cannot be told apart from a header by any rule, so it is accepted as a header.
+The header check is deterministic (owner decision 1A on Issue #4). The first row is the
+header, and it is rejected when a name is empty, two names are the same (DuckDB names are
+case-insensitive), or a name is a number (a sign that the first row is data). The message
+names the column and suggests a rename. Known limits, accepted by the owner: a header-less
+file whose first row is all text cannot be told apart from a header by any rule, so it is
+accepted; a real header with a numeric name such as ``2024`` is rejected (rename it ``y2024``).
 
 ASSUMPTION-01: column names are expected to be in English. This is documented, not
 enforced: any non-empty, unique header name is accepted.
@@ -209,22 +211,25 @@ def _check_header(path: Path) -> str:
     delimiter = _guess_delimiter(first_line)
     header = next(csv.reader(io.StringIO(head), delimiter=delimiter))
     names = [cell.strip() for cell in header]
-    if any(not n for n in names):
-        raise DatasetError(
-            "The header row has an empty column name. Give every column a name in the first row.",
-            reason="no_header",
-        )
-    if any(_NUMBER.fullmatch(n) for n in names):
-        raise DatasetError(
-            "The first row looks like data, not a header (it contains numbers). "
-            "Add a header row with a name for each column.",
-            reason="no_header",
-        )
+    for position, n in enumerate(names, start=1):
+        if not n:
+            raise DatasetError(
+                f"Column {position} in the header row has no name. Give it a name, "
+                f"for example 'column_{position}', or add a header row if the file has none.",
+                reason="no_header",
+            )
+        if _NUMBER.fullmatch(n):
+            raise DatasetError(
+                f"The column name '{n}' is a number, so the first row looks like data, not a header. "
+                f"Rename it, for example '{n}' → 'y{n.lstrip('+-')}', or add a header row if the file has none.",
+                reason="no_header",
+            )
     seen: set[str] = set()
     for n in names:
         if n.lower() in seen:
             raise DatasetError(
-                f"The header row uses the column name '{n}' more than once. Column names must be unique.",
+                f"The header row uses the column name '{n}' more than once. "
+                "Column names must be unique: rename one of them.",
                 reason="no_header",
             )
         seen.add(n.lower())
