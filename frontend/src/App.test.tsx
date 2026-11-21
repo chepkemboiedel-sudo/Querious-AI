@@ -117,22 +117,43 @@ describe("Loading a valid dataset (US-01)", () => {
     expect((body.get("file") as File).name).toBe("sales.csv");
   });
 
-  it("shows the table within 10 seconds of a load response", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      mockApi({
-        ...NO_ACTIVE,
-        "POST /datasets/sample": { body: { dataset: SAMPLE } },
-        "GET /semantic/terms": { body: { semantic_layer: SAMPLE_TERMS } },
-      });
-      await openStart();
-      const started = Date.now();
-      fireEvent.click(screen.getByRole("button", { name: "Use the sample dataset" }));
-      await screen.findByRole("table", { name: "Columns of the orders table" });
-      expect(Date.now() - started).toBeLessThan(10_000);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("shows the tables while the terms are still loading", async () => {
+    mockApi({
+      ...NO_ACTIVE,
+      "POST /datasets/sample": { body: { dataset: SAMPLE } },
+      "GET /semantic/terms": () => new Promise<Response>(() => {}),
+    });
+    await openStart();
+    fireEvent.click(screen.getByRole("button", { name: "Use the sample dataset" }));
+    expect(await screen.findByRole("table", { name: "Columns of the orders table" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading business terms…");
+  });
+
+  it("ignores a late terms reply from a dataset that was replaced", async () => {
+    let releaseOld: (r: Response) => void = () => {};
+    const replies = [
+      () => new Promise<Response>((resolve) => (releaseOld = resolve)),
+      async () => new Response(JSON.stringify({ semantic_layer: SAMPLE_TERMS }), { status: 200 }),
+    ];
+    mockApi({
+      "GET /datasets/active": { body: { dataset: UPLOAD } },
+      "GET /semantic/terms": () => replies.shift()!(),
+      "POST /datasets/sample": { body: { dataset: SAMPLE } },
+    });
+    render(<App />);
+    await screen.findByRole("table", { name: "Columns of the sales table" });
+    fireEvent.click(screen.getByRole("button", { name: "Change dataset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use the sample dataset" }));
+    const section = await screen.findByRole("region", { name: "Business terms" });
+    await within(section).findByText("active customer");
+    releaseOld(
+      new Response(JSON.stringify({ semantic_layer: { dataset_key: "sales.csv", version: "v", terms: [] } }), {
+        status: 200,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(within(section).getByText("active customer")).toBeInTheDocument();
+    expect(within(section).queryByText(/No business terms/)).not.toBeInTheDocument();
   });
 
   it("reopens the dataset kept from the last session", async () => {
@@ -283,7 +304,7 @@ describe("Accessibility (RC-14)", () => {
     }
   });
 
-  it("file errors and loading are announced in words, not colour alone", async () => {
+  it("file errors are announced in words, not colour alone", async () => {
     mockApi(NO_ACTIVE);
     await openStart();
     chooseFile(new File(["x"], "data.xlsx"));

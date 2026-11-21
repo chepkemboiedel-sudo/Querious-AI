@@ -52,7 +52,10 @@ export default function Sidebar({ dataset, onChangeDataset }: Props) {
                 onClick={(event) => event.preventDefault()}
               >
                 {item.label}
-                <span id={`${item.id}-unavailable`} className="nav-note">
+                <span aria-hidden="true" className="nav-note">
+                  Not available yet
+                </span>
+                <span id={`${item.id}-unavailable`} hidden>
                   Not available yet
                 </span>
               </button>
@@ -61,7 +64,7 @@ export default function Sidebar({ dataset, onChangeDataset }: Props) {
         )}
       </ul>
 
-      <p className="sidebar-note">Your rows stay local. Only schema and terms go to the AI.</p>
+      <p className="sidebar-note">Your rows stay local. Only your question, the schema and the terms go to the AI.</p>
     </nav>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, UNREACHABLE_MESSAGE, getActiveDataset, getTerms, type Dataset } from "./api";
 import DataOverview, { type TermsState } from "./components/DataOverview";
 import Sidebar from "./components/Sidebar";
@@ -10,6 +10,8 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("checking");
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [terms, setTerms] = useState<TermsState>({ status: "loading" });
+  // Each load gets a number, so a late terms reply for a replaced dataset is ignored.
+  const loadCount = useRef(0);
 
   // The last loaded dataset is kept after a restart (ARCHITECTURE §8), so reopen it.
   useEffect(() => {
@@ -32,11 +34,15 @@ export default function App() {
     setDataset(loaded);
     setScreen("overview");
     setTerms({ status: "loading" });
+    const thisLoad = ++loadCount.current;
     getTerms()
-      .then((layer) => setTerms({ status: "ready", layer }))
-      .catch((error: unknown) =>
-        setTerms({ status: "error", message: error instanceof ApiError ? error.message : UNREACHABLE_MESSAGE }),
-      );
+      .then((layer) => {
+        if (thisLoad === loadCount.current) setTerms({ status: "ready", layer });
+      })
+      .catch((error: unknown) => {
+        if (thisLoad !== loadCount.current) return;
+        setTerms({ status: "error", message: error instanceof ApiError ? error.message : UNREACHABLE_MESSAGE });
+      });
   }
 
   if (screen === "checking") {
