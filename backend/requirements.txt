@@ -1,3 +1,8 @@
 # Runtime dependencies for the Querious AI backend (Python 3.12).
 fastapi==0.165.0
 uvicorn==0.54.0
+# Embedded, local database for the one active dataset (H12). Extension auto-install is
+# turned off in app/pipeline, so it makes no network calls.
+duckdb==2.0.1
+# Needed by FastAPI for the CSV upload form.
+python-multipart==0.0.34

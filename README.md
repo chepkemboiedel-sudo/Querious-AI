@@ -22,6 +22,18 @@ pytest                              # tests use the mock LLM provider only; no n
 uvicorn app.main:app --reload       # http://127.0.0.1:8000/health -> {"status": "ok"}
 ```
 
+`pytest` skips the slow, local-only timing test (a generated 50 MB CSV must load within 10 seconds, US-01). Run it on request with `pytest -m slow`. CI does not run it.
+
+### Your dataset
+
+One dataset is active at a time. It is stored in the local `data/` folder (not committed; set `QUERIOUS_DATA_DIR` to use another folder) and is still there after a restart. Loading another dataset replaces it.
+
+- `POST /datasets/upload` (form field `file`): one `.csv` file, UTF-8, with a header row and at least one data row, up to 50 MB. Other files are rejected with a message that says why.
+- `POST /datasets/sample`: the built-in fictional sample, `customers` and `orders` (`backend/app/pipeline/sample_data/`).
+- `GET /datasets/active`: the active dataset's name, tables and column names, or `null`.
+
+Column names are assumed to be in English (ASSUMPTION-01). This is not enforced.
+
 ### Frontend (`frontend/`)
 
 ```powershell
