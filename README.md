@@ -30,7 +30,7 @@ One dataset is active at a time. It is stored in the local `data/` folder (not c
 
 - `POST /datasets/upload` (form field `file`): one `.csv` file, UTF-8, with a header row and at least one data row, up to 50 MB. Other files are rejected with a message that says why.
 - `POST /datasets/sample`: the built-in fictional sample, `customers` and `orders` (`backend/app/pipeline/sample_data/`).
-- `GET /datasets/active`: the active dataset's name, tables and column names, or `null`.
+- `GET /datasets/active`: the active dataset's stored profile, or `null`: its name, `fingerprint` (SHA-256 of the loaded file bytes), each table's `row_count` and `columns` (name and inferred DuckDB type), and `examples` (up to five values per text column, for local display on the Data overview only; never sent to the LLM). The upload and sample endpoints return the same shape.
 
 Column names are assumed to be in English (ASSUMPTION-01). This is not enforced.
 

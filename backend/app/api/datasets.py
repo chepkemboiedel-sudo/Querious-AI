@@ -1,8 +1,10 @@
 """Dataset endpoints behind screen 1 (Start): upload a CSV, load the sample, read the active one.
 
 Each load replaces the active dataset ("Change dataset" is simply another load), so only
-one dataset is active at a time (POLICY D-6). The response lists table and column names
-only; types, example values and the fingerprint come with TMP-04.
+one dataset is active at a time (POLICY D-6). The response is the stored profile (TMP-04):
+table and column names, inferred types and row counts, the dataset fingerprint, and up to
+five example values per text column for local display on the Data overview (screen 2).
+It is read from disk; these endpoints never open the dataset after it is loaded.
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile
