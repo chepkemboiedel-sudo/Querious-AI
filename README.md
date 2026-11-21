@@ -47,7 +47,8 @@ A data steward defines business terms, metrics and allowed joins offline in `sem
 ```powershell
 cd frontend
 npm ci
-npm run dev                         # http://localhost:5173
+npm run dev                         # http://localhost:5173 (start the backend first; /datasets, /semantic
+                                    # and /health are proxied to http://127.0.0.1:8000)
 npm test
 npm run build                       # output in frontend/dist/
 ```
